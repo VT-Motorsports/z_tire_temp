@@ -1,141 +1,87 @@
 /*
- * Copyright (c) 2025 VCU Team
- * SPDX-License-Identifier: Apache-2.0
+ * TempSense STM32H753VIT6 Thermal Sensor Board
  */
 
 /dts-v1/;
+
 #include <st/h7/stm32h753Xi.dtsi>
 #include <st/h7/stm32h753zitx-pinctrl.dtsi>
-#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/dt-bindings/i2c/i2c.h>
 
-/ {
-	model = "VCU STM32H753VIT6 Custom Board";
+ / {
+	model = "TempSense STM32H753VIT6 Thermal Sensor Board";
 	compatible = "st,stm32h753vi";
 
 	chosen {
 		zephyr,console = &usart3;
 		zephyr,shell-uart = &usart3;
-		zephyr,sram = &sram0;
+
+		zephyr,sram  = &sram0;
 		zephyr,flash = &flash0;
-		zephyr,dtcm = &dtcm;
+		zephyr,dtcm  = &dtcm;
+
 		zephyr,canbus = &fdcan1;
 	};
 
-	leds {
-		compatible = "gpio-leds";
-		err_led_yellow: led_0 {
-			gpios = <&gpioe 2 GPIO_ACTIVE_HIGH>;
-			label = "ERR LED Yellow";
-		};
-		err_led_orange: led_1 {
-			gpios = <&gpioe 3 GPIO_ACTIVE_HIGH>;
-			label = "ERR LED Orange";
-		};
-		err_led_red: led_2 {
-			gpios = <&gpioe 4 GPIO_ACTIVE_HIGH>;
-			label = "ERR LED Red";
-		};
-		err_led_blue: led_3 {
-			gpios = <&gpioe 5 GPIO_ACTIVE_HIGH>;
-			label = "ERR LED Blue";
-		};
-		err_led_green: led_4 {
-			gpios = <&gpioe 6 GPIO_ACTIVE_HIGH>;
-			label = "ERR LED Green";
-		};
-	};
-
-	vcu_signals {
-		compatible = "gpio-leds";
-		horn_signal: horn_sig {
-			gpios = <&gpioc 8 GPIO_ACTIVE_HIGH>;
-			label = "Horn Signal";
-		};
-		drive_enable: drive_en {
-			gpios = <&gpioc 9 GPIO_ACTIVE_HIGH>;
-			label = "Drive Enable";
-		};
-		air_ctrl: air_control {
-			gpios = <&gpioa 8 GPIO_ACTIVE_HIGH>;
-			label = "AIR Control";
-		};
-	};
-
 	aliases {
-		led0 = &err_led_yellow;
-		led1 = &err_led_orange;
-		led2 = &err_led_red;
-		led3 = &err_led_blue;
-		led4 = &err_led_green;
-		horn = &horn_signal;
-		drive-enable = &drive_enable;
-		air-ctrl = &air_ctrl;
+		i2c0 = &i2c1;
+		can0 = &fdcan1;
 	};
 };
 
-// &clk_lse {
-// 	status = "okay";
-// };
-
-
-
-
-&clk_hsi {
+/*
+ * Clocks
+ * - Your board has a 24 MHz crystal on PH0/PH1, so use HSE=24MHz (no bypass).
+ * - Keep the same derived frequencies as Nucleo: SYSCLK 480 MHz, FDCAN kernel 80 MHz.
+ */
+&clk_hse {
+	clock-frequency = <DT_FREQ_M(24)>;
 	status = "okay";
 };
 
 &pll {
-    div-m = <16>;     // 64 MHz / 16 = 4 MHz (same as Nucleo!)
-    mul-n = <240>;    // 4 MHz × 240 = 960 MHz VCO ✓
-    div-p = <2>;      // 960 / 2 = 480 MHz ✓
-    div-q = <2>;      // 960 / 2 = 480 MHz
-    div-r = <2>;      // 960 / 2 = 480 MHz
-    clocks = <&clk_hsi>;  // ← Changed from HSE to HSI
-    status = "okay";
+	/* 24MHz / 6 = 4MHz input, 4MHz * 240 = 960MHz VCO, /2 = 480MHz */
+	div-m = <6>;
+	mul-n = <240>;
+	div-p = <2>;
+	div-q = <2>;
+	div-r = <2>;
+	clocks = <&clk_hse>;
+	status = "okay";
 };
 
 &pll2 {
-    div-m = <32>;     // 64 MHz / 32 = 2 MHz
-    mul-n = <120>;    // 2 MHz × 120 = 240 MHz VCO
-    div-p = <2>;      // 240 / 2 = 120 MHz
-    div-q = <3>;      // 240 / 3 = 80 MHz (for FDCAN) ✓
-    div-r = <2>;      // 240 / 2 = 120 MHz
-    clocks = <&clk_hsi>;  // ← Changed from HSE to HSI
-    status = "okay";
+	/* 24MHz / 12 = 2MHz input, 2MHz * 120 = 240MHz VCO, /3 = 80MHz for FDCAN */
+	div-m = <12>;
+	mul-n = <120>;
+	div-p = <2>;
+	div-q = <3>; /* 80MHz */
+	div-r = <2>;
+	clocks = <&clk_hse>;
+	status = "okay";
 };
 
 &rcc {
-    clocks = <&pll>;
-    clock-frequency = <DT_FREQ_M(480)>;
-    d1cpre = <1>;
-    hpre = <2>;
-    d1ppre = <2>;
-    d2ppre1 = <2>;
-    d2ppre2 = <2>;
-    d3ppre = <2>;
+	clocks = <&pll>;
+	clock-frequency = <DT_FREQ_M(480)>;
+	d1cpre = <1>;
+	hpre = <2>;
+	d1ppre = <2>;
+	d2ppre1 = <2>;
+	d2ppre2 = <2>;
+	d3ppre = <2>;
 };
 
-/* Enable GPIO ports */
-&gpioa {
-	status = "okay";
-};
+/* Enable GPIO ports you use */
+&gpioa { status = "okay"; };
+&gpiob { status = "okay"; };
+&gpioc { status = "okay"; };
+&gpiod { status = "okay"; };
+&gpioe { status = "okay"; };
 
-&gpiob {
-	status = "okay";
-};
-
-&gpioc {
-	status = "okay";
-};
-
-&gpiod {
-	status = "okay";
-};
-
-&gpioe {
-	status = "okay";
-};
-
+/*
+ * USART3 console (PD8/PD9)
+ */
 &usart3 {
 	pinctrl-0 = <&usart3_tx_pd8 &usart3_rx_pd9>;
 	pinctrl-names = "default";
@@ -143,158 +89,39 @@
 	status = "okay";
 };
 
+/*
+ * CAN: transceiver RXD/TXD are on PA11/PA12 per schematic.
+ * NOTE: PA11/PA12 are also commonly used for USB FS (DM/DP), so don’t enable USB FS on this pinout.
+ */
 &fdcan1 {
 	clocks = <&rcc STM32_CLOCK_BUS_APB1_2 0x00000100>,
 		 <&rcc STM32_SRC_PLL2_Q FDCAN_SEL(2)>;
-	pinctrl-0 = <&fdcan1_rx_pb8 &fdcan1_tx_pb9>;
+
+	pinctrl-0 = <&fdcan1_rx_pa11 &fdcan1_tx_pa12>;
 	pinctrl-names = "default";
+
+	/* Optional but usually nice to have in DT */
+	bus-speed = <500000>;
+
 	status = "okay";
 };
 
-&fdcan2 {
-	clocks = <&rcc STM32_CLOCK_BUS_APB1_2 0x00000200>,
-		 <&rcc STM32_SRC_PLL2_Q FDCAN_SEL(2)>;
-	pinctrl-0 = <&fdcan2_rx_pb5 &fdcan2_tx_pb6>;
+/*
+ * I2C1: PB8/PB9 to MLX90640
+ */
+&i2c1 {
+	pinctrl-0 = <&i2c1_scl_pb8 &i2c1_sda_pb9>;
 	pinctrl-names = "default";
-	status = "okay";
-};
-
-&adc1 {
-	pinctrl-0 = <&adc1_inp16_pa0 &adc1_inp17_pa1 
-	             &adc1_inp14_pa2 &adc1_inp15_pa3
-	             &adc1_inp18_pa4 &adc1_inp19_pa5
-	             &adc1_inp3_pa6 &adc1_inp7_pa7>;
-	pinctrl-names = "default";
-	st,adc-clock-source = "SYNC";
-	st,adc-prescaler = <4>;
-	vref-mv = <3300>;
+	clock-frequency = <I2C_BITRATE_FAST>;
 	status = "okay";
 
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	channel@0 {
-		reg = <0>;
-		zephyr,gain = "ADC_GAIN_1";
-		zephyr,reference = "ADC_REF_VDD_1";
-		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
-		zephyr,resolution = <12>;
-		zephyr,input-positive = <16>;  /* PA0 - INP16 */
+	/*
+	 * MLX90640 default 7-bit I2C address is 0x33 in most setups. :contentReference[oaicite:1]{index=1}
+	 * Compatible string depends on the binding/driver you’re using; many Zephyr examples use "mlx90640". :contentReference[oaicite:2]{index=2}
+	 */
+	mlx90640: mlx90640@33 {
+		compatible = "mlx90640";
+		reg = <0x33>;
+		label = "MLX90640";
 	};
-
-	channel@1 {
-		reg = <1>;
-		zephyr,gain = "ADC_GAIN_1";
-		zephyr,reference = "ADC_REF_VDD_1";
-		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
-		zephyr,resolution = <12>;
-		zephyr,input-positive = <17>;  /* PA1 - INP17 */
-	};
-
-	channel@2 {
-		reg = <2>;
-		zephyr,gain = "ADC_GAIN_1";
-		zephyr,reference = "ADC_REF_VDD_1";
-		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
-		zephyr,resolution = <12>;
-		zephyr,input-positive = <14>;  /* PA2 - INP14 */
-	};
-
-	channel@3 {
-		reg = <3>;
-		zephyr,gain = "ADC_GAIN_1";
-		zephyr,reference = "ADC_REF_VDD_1";
-		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
-		zephyr,resolution = <12>;
-		zephyr,input-positive = <15>;  /* PA3 - INP15 */
-	};
-
-	channel@4 {
-		reg = <4>;
-		zephyr,gain = "ADC_GAIN_1";
-		zephyr,reference = "ADC_REF_VDD_1";
-		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
-		zephyr,resolution = <12>;
-		zephyr,input-positive = <18>;  /* PA4 - INP18 */
-	};
-
-	channel@5 {
-		reg = <5>;
-		zephyr,gain = "ADC_GAIN_1";
-		zephyr,reference = "ADC_REF_VDD_1";
-		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
-		zephyr,resolution = <12>;
-		zephyr,input-positive = <19>;  /* PA5 - INP19 */
-	};
-
-	channel@6 {
-		reg = <6>;
-		zephyr,gain = "ADC_GAIN_1";
-		zephyr,reference = "ADC_REF_VDD_1";
-		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
-		zephyr,resolution = <12>;
-		zephyr,input-positive = <3>;   /* PA6 - INP3 */
-	};
-
-	channel@7 {
-		reg = <7>;
-		zephyr,gain = "ADC_GAIN_1";
-		zephyr,reference = "ADC_REF_VDD_1";
-		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
-		zephyr,resolution = <12>;
-		zephyr,input-positive = <7>;   /* PA7 - INP7 */
-	};
-};
-&pinctrl {
-    adc1_inp16_pa0: adc1_inp16_pa0 {
-        pinmux = <STM32_PINMUX('A', 0, ANALOG)>;
-    };
-    adc1_inp17_pa1: adc1_inp17_pa1 {
-        pinmux = <STM32_PINMUX('A', 1, ANALOG)>;
-    };
-    adc1_inp14_pa2: adc1_inp14_pa2 {
-        pinmux = <STM32_PINMUX('A', 2, ANALOG)>;
-    };
-    adc1_inp15_pa3: adc1_inp15_pa3 {
-        pinmux = <STM32_PINMUX('A', 3, ANALOG)>;
-    };
-    adc1_inp18_pa4: adc1_inp18_pa4 {
-        pinmux = <STM32_PINMUX('A', 4, ANALOG)>;
-    };
-    adc1_inp19_pa5: adc1_inp19_pa5 {
-        pinmux = <STM32_PINMUX('A', 5, ANALOG)>;
-    };
-    adc1_inp3_pa6: adc1_inp3_pa6 {
-        pinmux = <STM32_PINMUX('A', 6, ANALOG)>;
-    };
-    adc1_inp7_pa7: adc1_inp7_pa7 {
-        pinmux = <STM32_PINMUX('A', 7, ANALOG)>;
-    };
-};
-
-&flash0 {
-	partitions {
-		compatible = "fixed-partitions";
-		#address-cells = <1>;
-		#size-cells = <1>;
-
-		boot_partition: partition@0 {
-			label = "mcuboot";
-			reg = <0x00000000 DT_SIZE_K(128)>;
-		};
-		slot0_partition: partition@20000 {
-			label = "image-0";
-			reg = <0x00020000 DT_SIZE_K(448)>;
-		};
-		slot1_partition: partition@90000 {
-			label = "image-1";
-			reg = <0x00090000 DT_SIZE_K(448)>;
-		};
-		storage_partition: partition@100000 {
-			label = "storage";
-			reg = <0x00100000 DT_SIZE_K(1024)>;
-		};
-	};
-};
-
-
+}; 
