@@ -3,7 +3,6 @@
 #include <zephyr/sys/sys_heap.h>
 #include <zephyr/sys/mem_stats.h>
 #include <zephyr/debug/cpu_load.h>
-#include "PedalSensors.h"
 #include "hardware.h"
 #include "vehicle_state.h"
 

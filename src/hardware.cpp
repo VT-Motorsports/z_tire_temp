@@ -3,7 +3,6 @@
 #include "adc.h"
 #include "vehicle_state.h"
 #include "zephyr/drivers/can.h"
-#include <cstdint>
 #include <zephyr/device.h>
 #include <zephyr/logging/log.h>
 

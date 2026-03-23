@@ -2,7 +2,6 @@
 #pragma once
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/can.h>
-#include "PedalSensors.h"
 
 enum Corner : uint8_t
 {
