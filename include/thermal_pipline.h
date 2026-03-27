@@ -2,7 +2,7 @@
 
 #include <zephyr/kernel.h>
 
-#include "thermal_Camera.h"
+#include "thermal_camera.h"
 
 class ThermalPipline
 {

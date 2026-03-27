@@ -5,6 +5,9 @@
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/kernel.h>
 
+
+#define MLX_NODE DT_NODELABEL(mlx90640)
+
 static constexpr uint8_t FRAME_COLS = 24;
 static constexpr uint8_t FRAME_ROWS = 32;
 
@@ -30,12 +33,20 @@ class ThermalCamera
     bool isWarm() const;
 
   private:
+
+    static constexpr uint16_t MLX_STATUS_REG_ADDR = 0x8000;
+    static constexpr uint16_t MLX_MEASURE_ENTRY_REG_ADDR = 0x0400;
+
+
     int i2c_read(uint16_t reg, uint8_t *buf, size_t len);
     int i2c_write(uint16_t reg, const uint8_t *buf, size_t len);
     int readNewData(uint32_t frameID, ThermalFrame &frame);
     void publishFrame();
 
     i2c_dt_spec i2c_;
+
+    uint8_t mRecentSubpage();
+    bool newData();
 
     
     ThermalFrame sensorBuf1_;
