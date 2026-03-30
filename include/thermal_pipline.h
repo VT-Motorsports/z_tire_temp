@@ -11,7 +11,7 @@ class ThermalPipline
 
     int start();
     void stop();
-    bool isRunning() const;
+    bool isRunning();
 
 
   private:
@@ -25,7 +25,7 @@ class ThermalPipline
     ThermalCamera &camera_;
     struct k_thread workerThread_;
     k_tid_t workerTid_ = nullptr;
-    uint32_t lastProcessedFrameId_ = 0;
+    uint32_t lastProcessedFrameId_ = 0; 
     bool running_ = false;
     ThermalFrame workingFrame_{};
 };
