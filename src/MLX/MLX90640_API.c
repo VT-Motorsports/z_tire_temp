@@ -14,8 +14,8 @@
  * limitations under the License.
  *
  */
-#include <MLX90640_API.h>
-#include <MLX90640_I2C_Driver.h>
+#include <MLX/MLX90640_API.h>
+#include <MLX/MLX90640_I2C_Driver.h>
 #include <stdint.h>
 #include <math.h>
 

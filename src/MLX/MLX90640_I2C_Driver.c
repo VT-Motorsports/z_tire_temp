@@ -1,4 +1,4 @@
-#include "MLX90640_I2C_Driver.h"
+#include "MLX/MLX90640_I2C_Driver.h"
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/logging/log.h>
 

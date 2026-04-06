@@ -23,8 +23,8 @@ file(GLOB_RECURSE APP_SOURCES
 
 # Suppress conversion/promotion warnings for vendor MLX90640 library
 set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/MLX90640_API.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/MLX90640_I2C_Driver.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/MLX/MLX90640_API.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/MLX/MLX90640_I2C_Driver.c
     PROPERTIES COMPILE_FLAGS "-Wno-double-promotion -Wno-conversion"
 )
 
