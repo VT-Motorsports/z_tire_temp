@@ -17,11 +17,7 @@
 #include <zephyr/sys/sys_heap.h>
 #include <zephyr/toolchain.h>
 #include <zephyr/types.h>
-
-#include "adc.h"
-#include "hardware.h"
-#include "system.h"
-#include "vehicle_state.h"
+#include "can.h"
 
 #ifndef __cplusplus
 #error "__cplusplus not defined! Build system is compiling as C!"
@@ -32,7 +28,7 @@ LOG_MODULE_REGISTER(main);
 CAN_MSGQ_DEFINE(main_can_rx_msgq, 1000);
 
 
-void send_heartbeat(Hardware &hw)
+void send_heartbeat(CanBus can)
 {
     static uint32_t heartbeat_counter = 0;
 
@@ -43,8 +39,7 @@ void send_heartbeat(Hardware &hw)
                                                  (uint8_t)(heartbeat_counter >> 8), (uint8_t)(heartbeat_counter), 0xEF,
                                                  0xFF, 0xFF, 0xFF}};
 
-    // TODO: Replace the CAN interface here as to remove abstraction created by hardware class
-    int ret = hw.can1.send(&heartbeat_frame, K_NO_WAIT); 
+    int ret = can.send(&heartbeat_frame, K_NO_WAIT); 
     if (ret == 0)
     {
     }
@@ -58,6 +53,14 @@ void send_heartbeat(Hardware &hw)
 
 int main(void)
 {
+    const struct device* can_dev = DEVICE_DT_GET(DT_NODELABEL(fdcan1));
+
+    CanBus can;
+    can.init(can_dev);
+
+
+
+
 
 
 }

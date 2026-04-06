@@ -13,6 +13,8 @@ CompileFlags:
     -Ibuild/zephyr/include/generated,
     -fmacro-backtrace-limit=0,
     -Wno-vla-cxx-extension,
+    -Wno-double-promotion,
+    -Wno-float-conversion,
     -std=gnu++20,
     -xc++,
 

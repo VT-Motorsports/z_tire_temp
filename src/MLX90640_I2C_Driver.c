@@ -29,7 +29,7 @@ int MLX90640_I2CGeneralReset(void)
 int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress,
                      uint16_t nMemAddressRead, uint16_t *data)
 {
-    (void)slaveAddr; // address is owned by the dt_spec
+    (void)slaveAddr; // default address is defined in the DT spec
 
     uint8_t reg[2] = { (uint8_t)(startAddress >> 8), (uint8_t)(startAddress & 0xFF) };
     uint16_t nBytes = nMemAddressRead * sizeof(uint16_t);

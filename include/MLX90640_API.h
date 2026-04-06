@@ -17,7 +17,12 @@
 #ifndef _MLX90640_API_H_
 #define _MLX90640_API_H_
 
-#include <cstdint>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MLX90640_NO_ERROR 0
 #define MLX90640_I2C_NACK_ERROR 1
 #define MLX90640_I2C_WRITE_ERROR 2
@@ -127,5 +132,9 @@ typedef struct
     int MLX90640_SetInterleavedMode(uint8_t slaveAddr);
     int MLX90640_SetChessMode(uint8_t slaveAddr);
     void MLX90640_BadPixelsCorrection(uint16_t *pixels, float *to, int mode, paramsMLX90640 *params);
-    
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

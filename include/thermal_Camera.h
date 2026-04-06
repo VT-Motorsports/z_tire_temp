@@ -14,13 +14,6 @@ static constexpr uint16_t MLX90640_WARMUP_S = (4 * 60);
 
 static constexpr uint16_t TOTAL_PIXELS = FRAME_ROWS * FRAME_COLS;
 
-// DONT NEED THIS JUST USE DEFAULT
-// enum class  cornerTempModSet {
-
-//     OBJ_RNG_1_neg40_0,
-//     OBJ_RNG_2_0_CT3,
-//     OBJ_RNG_3_CT3_CT4,
-// };
 
 struct ThermalFrame
 {
