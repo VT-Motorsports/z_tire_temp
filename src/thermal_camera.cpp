@@ -2,6 +2,8 @@
 #include "zephyr/drivers/i2c.h"
 #include "zephyr/kernel.h"
 #include "zephyr/logging/log.h"
+#include <cmath>
+#include <cstdint>
 
 LOG_MODULE_REGISTER(ThermalCamera);
 
@@ -15,11 +17,7 @@ int ThermalCamera::init()
 {
     sensor_init_timestamp_S = k_uptime_get() / 1000;
     restore_EPROM();
-
 }
-
-
-
 
 bool ThermalCamera::isWarm(void)
 {
@@ -92,7 +90,7 @@ int ThermalCamera::restore_EPROM()
     calibData.alpha_ptat = (double)((e(0x2410) & 0xF000) >> 12) / 4.0 + 8.0;
 
     // PTAT_25: EE[0x2431], 16-bit signed
-    calibData.ta_25 = (double)(int16_t)e(0x2431);
+    calibData.v_ptat_25 = (double)(int16_t)e(0x2431);
 
     // ---- §11.1.7  Gain ----
     calibData.gain = (double)(int16_t)e(0x2430);
@@ -108,7 +106,7 @@ int ThermalCamera::restore_EPROM()
     calibData.k_ta_scale_2 = (double)(scale_reg & 0x000F);
 
     // ---- §11.1.17 ADC resolution control ----
-    calibData.resolution = (e(0x2439) & 0x3000) >> 12;
+    calibData.resolution = (e(0x2438) & 0x3000) >> 12;
 
     // ---- §11.1.16 TGC ----
     int8_t tgc_ee = (int8_t)(e(0x243C) & 0x00FF);
@@ -327,6 +325,100 @@ double ThermalCamera::restore_Ta(uint8_t row, uint8_t col)
     int8_t kv_ee = (kv_raw > 7) ? (int8_t)(kv_raw - 16) : (int8_t)kv_raw;
 
     return (double)kv_ee / (double)(1LL << (int)calibData.k_v_scale);
+}
+
+int ThermalCamera::calculate_frame()
+{
+    frame_constants_valid_ = false;
+
+    // §11.2.2.2  Supply voltage
+    uint16_t v_s_raw;
+    i2c_read(0x072A, (uint8_t *)&v_s_raw, sizeof(v_s_raw));
+    double dv = ((double)(int16_t)v_s_raw - calibData.vdd_25) / calibData.kv_vdd;
+    vdd = dv + 3.3;
+
+    // §11.2.2.3  Ambient temperature
+    uint16_t v_ptat_raw;
+    i2c_read(0x0720, (uint8_t *)&v_ptat_raw, sizeof(v_ptat_raw));
+    int16_t v_ptat = (int16_t)v_ptat_raw;
+
+    uint16_t v_be_raw;
+    i2c_read(0x0700, (uint8_t *)&v_be_raw, sizeof(v_be_raw));
+    int16_t v_be = (int16_t)v_be_raw;
+
+    double v_ptat_art = ldexp((double)v_ptat / ((double)v_ptat * calibData.alpha_ptat + (double)v_be), 18);
+    t_a = (v_ptat_art / (1.0 + calibData.kv_ptat * dv) - calibData.v_ptat_25) / calibData.kt_ptat + 25.0;
+
+    // §11.2.2.4  Gain
+    uint16_t r_gain_raw;
+    i2c_read(0x070A, (uint8_t *)&r_gain_raw, sizeof(r_gain_raw));
+    k_gain = calibData.gain / (double)(int16_t)r_gain_raw;
+
+    // §11.2.2.6.1–6.2  CP pixel gain + offset/Ta/VDD compensation
+    uint16_t cp_sp0_raw, cp_sp1_raw;
+    i2c_read(0x0708, (uint8_t *)&cp_sp0_raw, sizeof(cp_sp0_raw));
+    i2c_read(0x0728, (uint8_t *)&cp_sp1_raw, sizeof(cp_sp1_raw));
+
+    double cp_ta_factor = 1.0 + (double)calibData.kta_cp * (t_a - 25.0);
+    double cp_vdd_factor = 1.0 + (double)calibData.kv_cp * (vdd - 3.3);
+    cp_os_[0] = (double)(int16_t)cp_sp0_raw * k_gain - (double)calibData.cp_offset[0] * cp_ta_factor * cp_vdd_factor;
+    cp_os_[1] = (double)(int16_t)cp_sp1_raw * k_gain - (double)calibData.cp_offset[1] * cp_ta_factor * cp_vdd_factor;
+
+    // Read all pixel RAM 0x0400–0x06FF (768 words)
+    int ret = i2c_read(0x0400, (uint8_t *)ram_cache_pix_, sizeof(ram_cache_pix_));
+    if (ret < 0)
+    {
+        LOG_ERR("Failed to read pixel RAM: %d", ret);
+        return ret;
+    }
+
+    frame_constants_valid_ = true;
+
+    // §11.2.2.5  Per-pixel temperature calculation
+    for (uint8_t row = 1; row <= FRAME_COLS; row++)
+        for (uint8_t col = 1; col <= FRAME_ROWS; col++)
+            irSensorBuff.pixels[row - 1][col - 1] = (float)_calculate_pixel_temp(row, col);
+
+    frame_constants_valid_ = false;
+    return 0;
+}
+
+double ThermalCamera::_calculate_pixel_temp(uint8_t row, uint8_t col)
+{
+    if (!frame_constants_valid_)
+    {
+        LOG_WRN("_calculate_pixle_temp called without valid frame constants");
+        return (double)NAN;
+    }
+
+    int pix = (row - 1) * 32 + (col - 1);
+
+    // §11.2.2.5.1  Gain compensation
+    double pix_gain = (double)(int16_t)ram_cache_pix_[pix] * k_gain;
+
+    // §11.2.2.5.3  Offset, Ta, VDD compensation (Ta0 = 25°C, VddV0 = 3.3V)
+    double pix_os = pix_gain - (double)calibData.offset[pix] * (1.0 + (double)calibData.kta[pix] * (t_a - 25.0)) *
+                                   (1.0 + (double)calibData.kv[pix] * (vdd - 3.3));
+
+    // §11.2.2.7  TGC gradient compensation (chess pattern, emissivity = 1)
+    int pattern = ((row - 1) % 2) ^ ((col - 1) % 2);
+    double v_ir_comp = pix_os - calibData.tgc * ((1 - pattern) * cp_os_[0] + pattern * cp_os_[1]);
+
+    // §11.2.2.8  Normalize to sensitivity
+    double alpha_cp = (1 - pattern) * (double)calibData.cp_alpha[0] + pattern * (double)calibData.cp_alpha[1];
+    double alpha_comp =
+        ((double)calibData.alpha[pix] - calibData.tgc * alpha_cp) * (1.0 + calibData.ks_ta * (t_a - 25.0));
+
+    // §11.2.2.9  Object temperature — basic range (Tr ≈ Ta - 8°C, emissivity = 1)
+    // ks_to[1] is the range-2 sensitivity slope coefficient (0°C to CT3)
+    double t_r = t_a - 8.0;
+    double t_aK4 = pow(t_a + 273.15, 4.0);
+    double t_rK4 = pow(t_r + 273.15, 4.0);
+    double t_ar = t_rK4 - (t_rK4 - t_aK4); // epsilon = 1 simplifies to t_aK4
+
+    double s_x = (double)calibData.ks_to[1] * pow(pow(alpha_comp, 3.0) * v_ir_comp + pow(alpha_comp, 4.0) * t_ar, 0.25);
+
+    return pow(v_ir_comp / (alpha_comp * (1.0 - (double)calibData.ks_to[1] * 273.15) + s_x) + t_ar, 0.25) - 273.15;
 }
 
 int ThermalCamera::updateStatusRegister()

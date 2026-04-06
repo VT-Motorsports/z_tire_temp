@@ -40,5 +40,8 @@
     },
 
     "editor.snippetSuggestions": "inline",
+    "cSpell.words": [
+        "calib"
+    ],
 
 }

@@ -14,6 +14,14 @@ static constexpr uint16_t MLX90640_WARMUP_S = (4 * 60);
 
 static constexpr uint16_t TOTAL_PIXELS = FRAME_ROWS * FRAME_COLS;
 
+// DONT NEED THIS JUST USE DEFAULT
+// enum class  cornerTempModSet {
+
+//     OBJ_RNG_1_neg40_0,
+//     OBJ_RNG_2_0_CT3,
+//     OBJ_RNG_3_CT3_CT4,
+// };
+
 struct ThermalFrame
 {
     float pixels[FRAME_COLS][FRAME_ROWS];
@@ -34,7 +42,7 @@ struct calibrationData
     double vdd_25;
     double kv_vdd;
 
-    double ta_25;
+    double v_ptat_25;
     double kv_ptat;
     double kt_ptat;
     double ks_ta;
@@ -89,6 +97,16 @@ class ThermalCamera
     double restore_Sensitivity(uint8_t row, uint8_t col);
     double restore_kta(uint8_t row, uint8_t col);
 
+    int calculate_frame();
+    double _calculate_pixel_temp(uint8_t row, uint8_t col);
+
+    // stored since calculations are done not per pixle but per frame
+    double t_a;
+    double vdd;
+    double k_gain;
+    bool frame_constants_valid_ = false; // guard: set true just before pixel loop
+    double cp_os_[2] = {};               // CP offset-compensated values SP0/SP1
+
     int updateStatusRegister();
 
     int i2c_read(uint16_t reg, uint8_t *buf, size_t len);
@@ -96,16 +114,15 @@ class ThermalCamera
     int readNewData();
     void publishFrame();
 
-    
     i2c_dt_spec i2c_;
 
     uint8_t mRecentSubpage();
     bool newData();
 
-    // Internal RAM data 
+    // Internal RAM data
     ThermalFrame irSensorBuff;
 
-    // frame made accessible to the thermal pipline class/outsiders 
+    // frame made accessible to the thermal pipline class/outsiders
     ThermalFrame publishedFrame_;
 
     struct k_mutex frameMutex_;
@@ -115,5 +132,6 @@ class ThermalCamera
     bool isWarm(void);
     uint16_t sensor_init_timestamp_S;
 
-    uint16_t eeprom_cache_[832]; // raw EEPROM words 0x2400-0x273F, populated by getEPROMData()
+    uint16_t eeprom_cache_[832];  // raw EEPROM words 0x2400-0x273F, populated by restore_EPROM()
+    uint16_t ram_cache_pix_[768]; // raw pixel RAM words 0x0400-0x06FF, refreshed each frame
 };
