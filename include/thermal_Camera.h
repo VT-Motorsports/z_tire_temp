@@ -29,98 +29,26 @@ struct ThermalFrame
     uint32_t frameId = 0;
 };
 
-struct statusRegister
-{
-    bool newDataAvailable;
-    int nextSubpageReady;
-};
-
-struct calibrationData
-{
-    // ===== GLOBAL =====
-    double gain;
-    double vdd_25;
-    double kv_vdd;
-
-    double v_ptat_25;
-    double kv_ptat;
-    double kt_ptat;
-    double ks_ta;
-    double k_v_scale;
-    double k_ta_scale_1;
-
-    double tgc;
-    int resolution;
-
-    // ===== PER PIXEL =====
-    float offset[TOTAL_PIXELS];
-    float alpha[TOTAL_PIXELS];
-    float kta[TOTAL_PIXELS];
-    float kv[TOTAL_PIXELS];
-
-    // ===== CP (compensation pixel) =====
-    float cp_offset[2];
-    float cp_alpha[2];
-
-    // ===== OPTIONAL (advanced) =====
-    float ks_to[4];
-    float ct[4];
-
-    // ===== DERIVED / SCALE =====
-    double alpha_ptat;   // §11.1.2.3
-    double k_ta_scale_2; // §11.1.6 – fine scale for per-pixel Kta
-    float kv_cp;         // §11.1.14
-    float kta_cp;        // §11.1.15
-};
 
 class ThermalCamera
 {
   public:
     // Keep the bus dependency injected so the camera stays testable.
-    explicit ThermalCamera(const i2c_dt_spec &i2c);
+    explicit ThermalCamera();
 
     int init();
-    int captureFrame();
     bool waitForFrame(k_timeout_t timeout = K_FOREVER);
     bool getLatestFrame(ThermalFrame &outFrame, uint32_t &outFrameId);
 
   private:
-    static constexpr uint16_t MLX_STATUS_REG_ADDR = 0x8000;
-    static constexpr uint16_t MLX_MEASURE_ENTRY_REG_ADDR = 0x0400;
-
-    statusRegister sReg;
-    calibrationData calibData;
-
-    int restore_EPROM();
-    double restore_Ta(uint8_t row, uint8_t col);
-    double restore_Offset(uint8_t row, uint8_t col);
-    double restore_Sensitivity(uint8_t row, uint8_t col);
-    double restore_kta(uint8_t row, uint8_t col);
 
     int calculate_frame();
-    double _calculate_pixel_temp(uint8_t row, uint8_t col);
 
-    // stored since calculations are done not per pixle but per frame
-    double t_a;
-    double vdd;
-    double k_gain;
-    bool frame_constants_valid_ = false; // guard: set true just before pixel loop
-    double cp_os_[2] = {};               // CP offset-compensated values SP0/SP1
-
-    int updateStatusRegister();
-
-    int i2c_read(uint16_t reg, uint8_t *buf, size_t len);
-    int i2c_write(uint16_t reg, const uint8_t *buf, size_t len);
-    int readNewData();
     void publishFrame();
 
-    i2c_dt_spec i2c_;
 
     uint8_t mRecentSubpage();
     bool newData();
-
-    // Internal RAM data
-    ThermalFrame irSensorBuff;
 
     // frame made accessible to the thermal pipline class/outsiders
     ThermalFrame publishedFrame_;
@@ -132,6 +60,4 @@ class ThermalCamera
     bool isWarm(void);
     uint16_t sensor_init_timestamp_S;
 
-    uint16_t eeprom_cache_[832];  // raw EEPROM words 0x2400-0x273F, populated by restore_EPROM()
-    uint16_t ram_cache_pix_[768]; // raw pixel RAM words 0x0400-0x06FF, refreshed each frame
 };

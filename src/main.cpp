@@ -58,38 +58,6 @@ void send_heartbeat(Hardware &hw)
 
 int main(void)
 {
-    static VehicleState vehicle;
-    static Hardware hardware(&vehicle);
-    static System system;
 
 
-    // Initialize system resources
-    if (system.init() != 0)
-    {
-        LOG_ERR("System init failed!");
-        return -1;
-    }
-
-    // Initialize hardware
-    if (hardware.init() != 0)
-    {
-        LOG_ERR("Hardware init failed!");
-        return -2;
-    }
-
-    // Start diagnostics monitoring
-    if (system.start_diagnostics(&hardware) != 0)
-    {
-        LOG_ERR("Failed to start diagnostics!");
-        return -3;
-    }
-
-
-    while (1)
-    {
-        hardware.led_green.toggle();
-        send_heartbeat(hardware);
-
-        k_msleep(500);
-    }
 }
