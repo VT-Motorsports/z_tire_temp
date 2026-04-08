@@ -10,8 +10,7 @@ class ThermalPipline
     explicit ThermalPipline(ThermalCamera &camera);
 
     int start();
-    void stop();
-    bool isRunning();
+    void close();
 
 
   private:

@@ -34,7 +34,7 @@ extern "C" {
 #define MLX90640_FRAME_DATA_ERROR 8
 #define MLX90640_MEAS_TRIGGER_ERROR 9
 
-#define BIT_MASK(x) (1UL << (x))
+#define BIT_MASK(x) (1UL << (x)) // Redefined from UTIL macro 
 #define REG_MASK(sbit,nbits) ~((~(~0UL << (nbits))) << (sbit))
 
 #define MLX90640_EEPROM_START_ADDRESS 0x2400

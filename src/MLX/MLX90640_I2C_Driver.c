@@ -4,7 +4,7 @@
 
 LOG_MODULE_REGISTER(mlx90640_i2c);
 
-// Driver owns the I2C bus reference; ThermalCamera no longer holds it.
+// Driver owns the I2C bus reference
 static const struct i2c_dt_spec mlx_i2c = I2C_DT_SPEC_GET(DT_NODELABEL(mlx90640));
 
 void MLX90640_I2CInit(void)
