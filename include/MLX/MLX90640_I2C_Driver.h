@@ -18,7 +18,7 @@
 #define _MLX90640_I2C_Driver_H_
 
 #include <stdint.h>
-#include "MLX90640_API.h"
+#include "MLX/MLX90640_API.h"
 
 #ifdef __cplusplus
 extern "C" {

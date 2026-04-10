@@ -20,6 +20,8 @@ ThermalCamera::ThermalCamera()
 
 int ThermalCamera::init()
 {
+
+    
     sensor_init_timestamp_S = k_uptime_get() / 1000;
 
     static uint16_t eeMLX90640[832];
@@ -41,6 +43,7 @@ int ThermalCamera::init()
     upFrameThreadPtr = k_thread_create(&upFrameThread, upFrameStack, CAPTURE_THREAD_STACK_SIZE, updateFrameThreadEntry,
                                        this, nullptr, nullptr, CAPTURE_THREAD_PRIORITY, 0, K_NO_WAIT);
 
+    LOG_INF("Thermal Camera Initalized");
     return 0;
 }
 
@@ -166,4 +169,23 @@ int ThermalCamera::close()
     k_thread_abort(upFrameThreadPtr);
 
     k_thread_join(upFrameThreadPtr, K_FOREVER);
+}
+
+
+
+ThermalFrame* ThermalCamera::getUpdatedFrame(){
+
+
+    int ret = k_sem_take(&frameReadySem_, K_NO_WAIT);
+    if(ret != 0 ){
+        return nullptr;
+    }
+
+    k_mutex_lock(&frameMutex_, K_FOREVER);
+    ThermalFrame *safePtr = externFramePtr;
+    k_mutex_unlock(&frameMutex_);
+
+
+    return safePtr;
+
 }

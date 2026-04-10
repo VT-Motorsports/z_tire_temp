@@ -10,7 +10,7 @@
 #include "zephyr/kernel/thread.h"
 
 #define MLX_NODE DT_NODELABEL(mlx90640)
-#define CAMERA_THREAD_STACK_SIZE 2048
+#define CAMERA_THREAD_STACK_SIZE 32768 
 
 static constexpr uint8_t MLX906040_I2C_ADRR = 0x32;
 static constexpr uint8_t FRAME_COLS = 24;
@@ -35,7 +35,7 @@ class ThermalCamera
     int init();
     int close();
     bool isWarm();
-    ThermalFrame *getUpdatedFrame();
+    ThermalFrame* getUpdatedFrame();
     static void logFrame(ThermalFrame &frame);
 
   private:
@@ -66,5 +66,6 @@ class ThermalCamera
     // --- Internal methods ---
     int updateFrame();
     static void updateFrameThreadEntry(void *p1, void *p2, void *p3);
-    int getFrame(ThermalFrame &outFrame);
+    int getFrame(ThermalFrame &outFrame); // TODO: Fix this naming convention this internal method is to similar to the get for the customer
+
 };
