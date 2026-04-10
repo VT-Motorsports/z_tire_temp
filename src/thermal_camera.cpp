@@ -94,7 +94,7 @@ int ThermalCamera::getFrame(ThermalFrame &outFrame)
     tr = MLX90640_GetTa(mlx90640Frame, &params) - trShift;
 
     MLX90640_CalculateTo(mlx90640Frame, &params, emissivity, tr, (float *)outFrame.pixels);
-    // My guess is that this has no return since it doest handle I2C communication.
+    return 0;
 }
 
 /**
@@ -121,7 +121,7 @@ int ThermalCamera::updateFrame()
         k_sem_give(&frameReadySem_);
     }
 
-    return 0;
+    
     // TODO Implement some sort of error handling.
     // TODO: implement variable wait times to save cpu time we know frames wont be updated based on the refresh rate of
     // the
@@ -134,7 +134,7 @@ void ThermalCamera::logFrame(ThermalFrame &frame)
     LOG_INF("=== Frame %u | subpage %u | warmed: %d ===", frame.frameId, frame.subPage, (int)frame.warmedData);
 
     // Each pixel formatted as "XXX.X " = 6 chars, 24 cols per row
-    char rowBuf[FRAME_COLS * 6 + 1];
+    static char rowBuf[FRAME_COLS * 6 + 1];
 
     for (int row = 0; row < FRAME_ROWS; row++)
     {
@@ -169,6 +169,7 @@ int ThermalCamera::close()
     k_thread_abort(upFrameThreadPtr);
 
     k_thread_join(upFrameThreadPtr, K_FOREVER);
+    return 0;
 }
 
 

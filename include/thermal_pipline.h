@@ -6,7 +6,7 @@
 #include "can.h"
 #include "thermal_camera.h"
 
-#define PIPE_THREAD_STACK_SIZE  8192
+#define PIPE_THREAD_STACK_SIZE  32768
 
 
 // TODO:Talk with pujan about how this is supposed to work
@@ -27,7 +27,7 @@ class ThermalPipline
 
   private:
     static constexpr int THREAD_PRIORITY = 5;
-    static constexpr size_t THREAD_STACK_SIZE = 8192;
+    static constexpr size_t THREAD_STACK_SIZE = 16384;
 
     bool pushSummaryToCan();
 

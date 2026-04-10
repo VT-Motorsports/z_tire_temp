@@ -24,6 +24,7 @@ int ThermalPipline::start()
     workerTid_ = k_thread_create(&workerThread_, processingStack, THREAD_STACK_SIZE, threadEntry, this, nullptr,
                                  nullptr, THREAD_PRIORITY, 0, K_NO_WAIT);
 
+    LOG_INF("Thermal Pipline initalized");                                 
     return 0;
 }
 
@@ -44,7 +45,8 @@ void ThermalPipline::processingLoop()
         if (!framePtr)
         {
             LOG_DBG("Frame not updated frame not ready");
-            break;
+            k_sleep(K_MSEC(10));
+            continue;
         }
         else
         {
@@ -55,7 +57,6 @@ void ThermalPipline::processingLoop()
         if (framePtr->frameId > lastProcessedFrameId_ + 1)
         {
             LOG_DBG("Skipped frame processing taken too long");
-            break;
         }
 
         if (printData){
@@ -72,7 +73,7 @@ void ThermalPipline::processingLoop()
             .id = AVERAGE_PIXEL_MSG,
             .dlc = 2,
             .flags = 0,
-            .data = {(uint8_t)encodeTemp(avg),uint8_t() }
+            .data = {(uint8_t)avg,uint8_t() }
         };
 
         int ret = can_.send(&cnframe, K_MSEC(10));

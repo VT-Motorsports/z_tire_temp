@@ -29,7 +29,6 @@ LOG_MODULE_REGISTER(main);
 
 CAN_MSGQ_DEFINE(main_can_rx_msgq, 1000);
 
-
 void send_heartbeat(CanBus can)
 {
     static uint32_t heartbeat_counter = 0;
@@ -41,7 +40,7 @@ void send_heartbeat(CanBus can)
                                                  (uint8_t)(heartbeat_counter >> 8), (uint8_t)(heartbeat_counter), 0xEF,
                                                  0xFF, 0xFF, 0xFF}};
 
-    int ret = can.send(&heartbeat_frame, K_NO_WAIT); 
+    int ret = can.send(&heartbeat_frame, K_NO_WAIT);
     if (ret == 0)
     {
     }
@@ -59,7 +58,7 @@ int main(void)
 
     LOG_INF("Main Innit");
 
-    const struct device* can_dev = DEVICE_DT_GET(DT_NODELABEL(fdcan1));
+    const struct device *can_dev = DEVICE_DT_GET(DT_NODELABEL(fdcan1));
 
     CanBus can;
     can.init(can_dev);
@@ -67,11 +66,9 @@ int main(void)
     ThermalCamera MLX{};
     MLX.init();
 
-    
-    ThermalPipline pipe{MLX,can};
-
+    ThermalPipline pipe{MLX, can};
     pipe.start();
-    pipe.printData = true;
-    
+    // pipe.printData = true;
 
+    k_sleep(K_FOREVER);
 }
