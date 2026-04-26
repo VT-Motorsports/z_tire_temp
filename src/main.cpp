@@ -68,7 +68,7 @@ int main(void)
 
     ThermalPipline pipe{MLX, can};
     pipe.start();
-    // pipe.printData = true;
+    pipe.printData = true;
 
     k_sleep(K_FOREVER);
 }

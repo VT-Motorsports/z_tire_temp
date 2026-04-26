@@ -30,6 +30,7 @@ int ThermalPipline::start()
 
 void ThermalPipline::threadEntry(void *p1, void *p2, void *p3)
 {
+    LOG_INF("---ENTERED PIPE THREAD---");
     static_cast<ThermalPipline *>(p1)->processingLoop();
 }
 
@@ -51,7 +52,6 @@ void ThermalPipline::processingLoop()
         else
         {
             lastProcessedFrameId_ = framePtr->frameId;
-            // Will this break on priming?
         }
 
         if (framePtr->frameId > lastProcessedFrameId_ + 1)
@@ -68,12 +68,13 @@ void ThermalPipline::processingLoop()
 
         uint16_t avg = encodeTemp(getAveragePixel(*framePtr));
 
+        // LITTLE ENDIAN
         struct can_frame cnframe
         {
             .id = AVERAGE_PIXEL_MSG,
             .dlc = 2,
             .flags = 0,
-            .data = {(uint8_t)avg,uint8_t() }
+            .data = {(uint8_t)avg,(uint8_t)(avg>>8) }
         };
 
         int ret = can_.send(&cnframe, K_MSEC(10));
@@ -88,21 +89,21 @@ void ThermalPipline::processingLoop()
 }
 
 /**
- * @brief Encode thermal temp to pass with CAN
+ * @brief Encode thermal temp to pass with CAN (Multiplys by 10 and encodes as uint8)
  *
  * @param temp
  * @return uint16_t
  */
-uint16_t ThermalPipline::encodeTemp(float &temp)
+uint16_t ThermalPipline::encodeTemp(const float &temp)
 {
-    return static_cast<uint16_t>(temp + 100.0f);
+    return static_cast<uint16_t>(temp  * 10.0f);
     // 37.5C -> 375C (uint16)
+
+    // NOTE THIS METHOD CANNOT STORE VALUES OF THE RANGE t < .09
+    // All values save the first decimal point and encode as a uint16_t
 }
 
-// not sure if this is correct but want an overload that can do lvalue and rvalue params
-uint16_t ThermalPipline::encodeTemp(float temp){ 
-    return static_cast<uint16_t>(temp + 100.0f);
-} 
+
 
 float ThermalPipline::getAveragePixel(ThermalFrame &frame)
 {

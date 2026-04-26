@@ -36,8 +36,7 @@ class ThermalPipline
 
     // Processing functions
     float getAveragePixel(ThermalFrame &frame);
-    static uint16_t encodeTemp(float &temp);
-    static uint16_t encodeTemp(float temp); // Not sure this is the right way to do this 
+    static uint16_t encodeTemp(const float &temp);
 
 
     CanBus &can_;
