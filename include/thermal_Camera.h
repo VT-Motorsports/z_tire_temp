@@ -1,0 +1,87 @@
+#pragma once
+
+#include "thermal_camera.h"
+#include <cstddef>
+#include <stdint.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/i2c.h>
+#include <zephyr/kernel.h>
+#include "MLX/MLX90640_API.h"
+#include "zephyr/kernel/thread.h"
+
+#define MLX_NODE DT_NODELABEL(mlx90640)
+#define CAMERA_THREAD_STACK_SIZE 32768 
+
+static constexpr uint8_t MLX906040_I2C_ADRR = 0x32;
+static constexpr uint8_t FRAME_COLS = 32;
+static constexpr uint8_t FRAME_ROWS = 24;
+static constexpr uint16_t MLX90640_WARMUP_S = (4 * 60);
+static constexpr uint16_t TOTAL_PIXELS = FRAME_ROWS * FRAME_COLS;
+static constexpr uint16_t TOTAL_FRAME_BUFF_AMT = 834;
+
+struct ThermalFrame
+{
+    float pixels[TOTAL_PIXELS];
+    bool warmedData = false;
+    uint32_t frameId = 0;
+    uint8_t subPage = 0;
+};
+
+
+enum class TC_RefreshRate : uint8_t
+{
+  REFRESH_00_5_HZ = 0x00,
+  REFRESH_01_HZ = 0x01,
+  REFRESH_02_HZ = 0x02,
+  REFRESH_04_HZ = 0x03,
+  REFRESH_08_HZ = 0x04,
+  REFRESH_16_HZ = 0x05,
+  REFRESH_32_HZ = 0x06, 
+  REFRESH_64_HZ = 0x07
+};
+
+class ThermalCamera
+{
+  public:
+    explicit ThermalCamera();
+
+    int init();
+    int close();
+    bool isWarm();
+    int setRefreshRate(TC_RefreshRate rate);
+    ThermalFrame* getUpdatedFrame();
+    static void logFrame(ThermalFrame &frame);
+
+  private:
+    // --- Thread configuration ---
+    static constexpr int CAPTURE_THREAD_PRIORITY = 4;
+    static constexpr size_t CAPTURE_THREAD_STACK_SIZE = CAMERA_THREAD_STACK_SIZE;
+
+    // --- Sensor state ---
+    paramsMLX90640 params;
+    uint16_t sensor_init_timestamp_S;
+    TC_RefreshRate refreshRate = TC_RefreshRate::REFRESH_02_HZ;
+
+    // --- Frame buffers ---
+    ThermalFrame thermFrameBuff1;
+    ThermalFrame thermFrameBuff2;
+    ThermalFrame *externFramePtr = &thermFrameBuff1;   // Frame that is accessible with getUpdated frame
+    ThermalFrame *internalFramePtr = &thermFrameBuff2; // Frame that updateFrame updates
+
+    // --- Synchronization ---
+    struct k_mutex frameMutex_;
+    struct k_sem frameReadySem_;
+    uint32_t nextFrameId_ = 1;
+
+    // --- Threading ---
+    k_thread upFrameThread;
+    k_tid_t upFrameThreadPtr = nullptr;
+    bool running_ = false;
+
+    // --- Internal methods ---
+    void updateFrame();
+    static int interLeaveChessData(ThermalFrame &sourceFrame, ThermalFrame &destFrame);
+    static void updateFrameThreadEntry(void *p1, void *p2, void *p3);
+    int getFrame(ThermalFrame &outFrame); // TODO: Fix this naming convention this internal method is to similar to the get for the customer
+
+};
