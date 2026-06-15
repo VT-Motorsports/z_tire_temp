@@ -39,6 +39,8 @@ class ThermalPipline
     static uint16_t encodeTemp(const float &temp);
 
 
+    void printSimple(ThermalFrame &Frame);
+
     CanBus &can_;
     ThermalCamera &camera_;
     struct k_thread workerThread_;

@@ -139,3 +139,29 @@ void ThermalPipline::close()
 
     k_thread_join(workerTid_, K_FOREVER);
 }
+
+void ThermalPipline::printSimple(ThermalFrame &Frame){
+
+
+    static char rowBuf[FRAME_COLS * 6 + 1];
+
+    for (int row = 0; row < FRAME_ROWS; row++)
+    {
+        int offset = 0;
+        for (int col = 0; col < FRAME_COLS; col++)
+        {
+            float t = Frame.pixels[row * FRAME_COLS + col];
+            int whole = (int)t;
+            int frac = (int)((t - (float)whole) * 10);
+            if (frac < 0)
+            {
+                frac = -frac;
+            }
+            offset += snprintf(rowBuf + offset, sizeof(rowBuf) - offset, "%3d.%d ", whole, frac);
+        }
+        LOG_INF("%02d: %s", row, rowBuf);
+    }
+
+
+
+}

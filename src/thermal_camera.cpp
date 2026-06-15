@@ -203,6 +203,11 @@ void ThermalCamera::logFrame(ThermalFrame &frame)
     }
 }
 
+
+
+
+
+
 int ThermalCamera::close()
 {
 
@@ -250,3 +255,6 @@ int ThermalCamera::setRefreshRate(TC_RefreshRate rate)
     refreshRate = rate;
     return status;
 }
+
+
+
