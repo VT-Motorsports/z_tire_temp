@@ -19,7 +19,7 @@
 #include <zephyr/types.h>
 #include "can.h"
 #include "thermal_camera.h"
-#include "thermal_pipline.h"
+#include "thermal_pipeline.h"
 
 #ifndef __cplusplus
 #error "__cplusplus not defined! Build system is compiling as C!"
@@ -66,7 +66,7 @@ int main(void)
     ThermalCamera MLX{};
     MLX.init();
 
-    ThermalPipline pipe{MLX, can};
+    ThermalPipeline pipe{MLX, can};
     pipe.start();
     pipe.printData = true;
 

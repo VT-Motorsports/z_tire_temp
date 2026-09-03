@@ -1,21 +1,25 @@
-#include "thermal_pipline.h"
+#include "thermal_pipeline.h"
 #include "can.h"
 #include "thermal_camera.h"
 #include "zephyr/drivers/can.h"
 #include "zephyr/kernel.h"
 #include "zephyr/logging/log.h"
+#include "zephyr/sys/util.h"
+#include <cerrno>
+#include <cmath>
 #include <cstdint>
+#include <stdint.h>
+
 
 LOG_MODULE_REGISTER(ThermalPipline);
 
-
 K_THREAD_STACK_DEFINE(processingStack, PIPE_THREAD_STACK_SIZE);
 
-ThermalPipline::ThermalPipline(ThermalCamera &camera, CanBus &can) : can_(can), camera_(camera)
+ThermalPipeline::ThermalPipeline(ThermalCamera &camera, CanBus &can) : can_(can), camera_(camera)
 {
 }
 
-int ThermalPipline::start()
+int ThermalPipeline::start()
 {
     can_.start();
 
@@ -24,17 +28,17 @@ int ThermalPipline::start()
     workerTid_ = k_thread_create(&workerThread_, processingStack, THREAD_STACK_SIZE, threadEntry, this, nullptr,
                                  nullptr, THREAD_PRIORITY, 0, K_NO_WAIT);
 
-    LOG_INF("Thermal Pipline initalized");                                 
+    LOG_INF("Thermal Pipline initalized");
     return 0;
 }
 
-void ThermalPipline::threadEntry(void *p1, void *p2, void *p3)
+void ThermalPipeline::threadEntry(void *p1, void *p2, void *p3)
 {
     LOG_INF("---ENTERED PIPE THREAD---");
-    static_cast<ThermalPipline *>(p1)->processingLoop();
+    static_cast<ThermalPipeline *>(p1)->processingLoop();
 }
 
-void ThermalPipline::processingLoop()
+void ThermalPipeline::processingLoop()
 {
 
     // TODO: implement error handling
@@ -59,32 +63,24 @@ void ThermalPipline::processingLoop()
             LOG_DBG("Skipped frame processing taken too long");
         }
 
-        if (printData){
+        if (printData)
+        {
             camera_.logFrame(*framePtr);
         }
-
-
-
 
         uint16_t avg = encodeTemp(getAveragePixel(*framePtr));
 
         // LITTLE ENDIAN
-        struct can_frame cnframe
-        {
-            .id = AVERAGE_PIXEL_MSG,
-            .dlc = 2,
-            .flags = 0,
-            .data = {(uint8_t)avg,(uint8_t)(avg>>8) }
-        };
+        struct can_frame cnframe{
+            .id = AVERAGE_PIXEL_MSG, .dlc = 2, .flags = 0, .data = {(uint8_t)avg, (uint8_t)(avg >> 8)}};
 
         int ret = can_.send(&cnframe, K_MSEC(10));
 
-        if (ret !=0){
+        if (ret != 0)
+        {
 
             LOG_DBG("ERROR: CAN message not sent");
-
         }
-
     }
 }
 
@@ -94,18 +90,73 @@ void ThermalPipline::processingLoop()
  * @param temp
  * @return uint16_t
  */
-uint16_t ThermalPipline::encodeTemp(const float &temp)
+uint16_t ThermalPipeline::encodeTemp(const float &temp)
 {
-    return static_cast<uint16_t>(temp  * 10.0f);
+    return static_cast<uint16_t>(temp * 10.0f);
     // 37.5C -> 375C (uint16)
 
     // NOTE THIS METHOD CANNOT STORE VALUES OF THE RANGE t < .09
     // All values save the first decimal point and encode as a uint16_t
 }
 
+int ThermalPipeline::segementCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS], uint8_t seg_height )
+{
+
+    //    Camera Frame
+    //     --------  
+    //     
+    //     ||||||||  <- Strips have a height that is determined by *seg_height* and detemine how "tall" the strips are
+    //      
+    //     --------
 
 
-float ThermalPipline::getAveragePixel(ThermalFrame &frame)
+
+
+    seg_height = MIN(seg_height, FRAME_ROWS);
+    LOG_WRN("The configured segmentation height (%i) was greater than the avalible rows (%i). It was clamped.",seg_height,FRAME_COLS);
+
+     
+    int seg_start = FRAME_COLS/2;
+    int center_width = seg_height/2;  
+
+
+
+
+    uint8_t seg_width =  std::ceil((double)FRAME_COLS/CAMERA_PROCESSING_SEGMENTS);
+
+
+        // with truncation this will be at most 1 short
+    for (int row =  seg_height - center_width ; row < seg_start + center_width; row++)
+    {
+        for (int col = 0; col < FRAME_COLS; col++)
+        {
+
+            int seg_num = static_cast<int>(col / seg_width); 
+
+            buf[seg_num] = frame.pixels[row *FRAME_COLS +col];
+
+        }
+    }
+
+    // Handles the case where the number of segements doesnt equally split up the thermal camera. 
+    if (FRAME_COLS % CAMERA_PROCESSING_SEGMENTS != 0){
+
+        for(int i =0; i< CAMERA_PROCESSING_SEGMENTS-1; i++) buf[i]/= seg_width;
+
+        buf[CAMERA_PROCESSING_SEGMENTS-2] /= FRAME_COLS - ((CAMERA_PROCESSING_SEGMENTS-1) *seg_width);
+
+    }else {
+    
+        for(int i =0; i< CAMERA_PROCESSING_SEGMENTS; i++) buf[i]/= seg_width;
+
+    }
+
+
+
+    return 0;
+}
+
+float ThermalPipeline::getAveragePixel(ThermalFrame &frame)
 {
 
     double sum{0};
@@ -120,7 +171,7 @@ float ThermalPipline::getAveragePixel(ThermalFrame &frame)
     return sum / TOTAL_PIXELS;
 }
 
-void ThermalPipline::close()
+void ThermalPipeline::close()
 {
 
     camera_.close();
@@ -140,8 +191,8 @@ void ThermalPipline::close()
     k_thread_join(workerTid_, K_FOREVER);
 }
 
-void ThermalPipline::printSimple(ThermalFrame &Frame){
-
+void ThermalPipeline::printSimple(ThermalFrame &Frame)
+{
 
     static char rowBuf[FRAME_COLS * 6 + 1];
 
@@ -161,7 +212,4 @@ void ThermalPipline::printSimple(ThermalFrame &Frame){
         }
         LOG_INF("%02d: %s", row, rowBuf);
     }
-
-
-
 }

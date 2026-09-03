@@ -25,7 +25,8 @@
         "--completion-style=detailed",
         "--header-insertion=iwyu",
         "--pch-storage=memory",
-        "--log=error"
+        "--log=error",
+        "--query-driver=C:/Users/weder/zephyr-sdk-0.17.4/arm-zephyr-eabi/bin/arm-zephyr-eabi-g++.exe"
     ],
     
 
@@ -45,6 +46,21 @@
     ],
 
     "python.defaultInterpreterPath": "${workspaceFolder}/../.venv/Scripts/python.exe",
-    "python.terminal.activateEnvironment": true
+    "python.terminal.activateEnvironment": true,
+
+
+        "terminal.integrated.profiles.windows": {
+        "Zephyr IDE Terminal": {
+            "path": "powershell.exe",
+            "args": [
+                "-NoExit",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "& '${workspaceFolder}/../.venv/Scripts/Activate.ps1'"
+            ]
+        }
+    }
 
 }
+

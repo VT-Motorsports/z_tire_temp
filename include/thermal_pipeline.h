@@ -2,23 +2,26 @@
 
 #include <cstdint>
 #include <zephyr/kernel.h>
+#include <errno.h>
+#include <span>
 
 #include "can.h"
 #include "thermal_camera.h"
 
-#define PIPE_THREAD_STACK_SIZE  32768
+#define PIPE_THREAD_STACK_SIZE 32768
 
+#define CAMERA_PROCESSING_SEGMENTS 7
 
 // TODO:Talk with pujan about how this is supposed to work
 enum CAN_MSG_CODES
 {
-  AVERAGE_PIXEL_MSG = 0x300
+    AVERAGE_PIXEL_MSG = 0x300
 };
 
-class ThermalPipline
+class ThermalPipeline
 {
   public:
-    explicit ThermalPipline(ThermalCamera &camera, CanBus &can);
+    explicit ThermalPipeline(ThermalCamera &camera, CanBus &can);
 
     int start();
     void close();
@@ -36,8 +39,8 @@ class ThermalPipline
 
     // Processing functions
     float getAveragePixel(ThermalFrame &frame);
+    int segementCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS], uint8_t seg_height );
     static uint16_t encodeTemp(const float &temp);
-
 
     void printSimple(ThermalFrame &Frame);
 
