@@ -10,7 +10,7 @@
 
 LOG_MODULE_REGISTER(ThermalCamera);
 
-K_THREAD_STACK_DEFINE(upFrameStack, CAMERA_THREAD_STACK_SIZE);
+K_THREAD_STACK_DEFINE(thermalCamThreadStack, CAMERA_THREAD_STACK_SIZE);
 
 ThermalCamera::ThermalCamera()
 {
@@ -26,8 +26,7 @@ int ThermalCamera::init()
     static uint16_t eeMLX90640[832];
 
     int status{};
-
-    // TODO: implement error handling 
+ 
     status = MLX90640_DumpEE(MLX906040_I2C_ADRR, eeMLX90640);
 
     status = MLX90640_ExtractParameters(eeMLX90640, &params);
@@ -40,8 +39,17 @@ int ThermalCamera::init()
 
     running_ = true;
 
-    upFrameThreadPtr = k_thread_create(&upFrameThread, upFrameStack, CAPTURE_THREAD_STACK_SIZE, updateFrameThreadEntry,
-                                       this, nullptr, nullptr, CAPTURE_THREAD_PRIORITY, 0, K_NO_WAIT);
+    upFrameThreadPtr = k_thread_create(&upFrameThread,
+                                        thermalCamThreadStack,
+                                        CAPTURE_THREAD_STACK_SIZE,
+                                        updateFrameThreadEntry,
+                                        this,
+                                        nullptr,
+                                        nullptr,
+                                        CAPTURE_THREAD_PRIORITY,
+                                        0,
+                                        K_NO_WAIT
+                                        );
 
     LOG_INF("Thermal Camera Initalized");
     return 0;

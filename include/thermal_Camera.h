@@ -54,7 +54,7 @@ class ThermalCamera
 
   private:
     // --- Thread configuration ---
-    static constexpr int CAPTURE_THREAD_PRIORITY = 4;
+    static constexpr int CAPTURE_THREAD_PRIORITY = K_LOWEST_THREAD_PRIO + 2;
     static constexpr size_t CAPTURE_THREAD_STACK_SIZE = CAMERA_THREAD_STACK_SIZE;
 
     // --- Sensor state ---
