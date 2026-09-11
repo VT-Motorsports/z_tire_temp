@@ -35,8 +35,8 @@ class ThermalPipeline
     bool printData = false;
 
   private:
-    static constexpr int PROCESSING_THREAD_PRIO = K_LOWEST_THREAD_PRIO + 3;
-    static constexpr int PRINT_FRAMES_PRIO = K_LOWEST_THREAD_PRIO + 1;
+    static constexpr int PROCESSING_THREAD_PRIO = 6;
+    static constexpr int PRINT_FRAMES_PRIO = 7;
     static constexpr size_t PRINT_QUEUE_LEN = 5;
 
     bool pushSummaryToCan();

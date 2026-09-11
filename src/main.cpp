@@ -54,19 +54,19 @@ void send_heartbeat(CanBus can)
 
 int main(void)
 
-{
+     {
 
     LOG_INF("Main Innit");
 
     const struct device *can_dev = DEVICE_DT_GET(DT_NODELABEL(fdcan1));
 
-    CanBus can;
+    static CanBus can;
     can.init(can_dev);
 
-    ThermalCamera MLX{};
+    static ThermalCamera MLX{};
     MLX.init();
 
-    ThermalPipeline pipe{MLX, can};
+    static ThermalPipeline pipe{MLX, can};
     pipe.start();
     pipe.printData = true;
 

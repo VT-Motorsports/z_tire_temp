@@ -116,8 +116,7 @@ uint16_t ThermalPipeline::encodeTemp(const float &temp)
     // All values save the first decimal point and encode as a uint16_t
 }
 
-int ThermalPipeline::segementCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS],
-                                        uint8_t seg_height)
+int ThermalPipeline::segementCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS],uint8_t seg_height)
 {
 
     //    Camera Frame

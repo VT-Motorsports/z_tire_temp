@@ -66,8 +66,6 @@ void ThermalCamera::updateFrameThreadEntry(void *p1, void *p2, void *p3)
 
     LOG_INF("---ENTERED CAMEREA THREAD---");
     static_cast<ThermalCamera *>(p1)->updateFrame();
-    // pass the thermalCamera object pointer to P1 for entry so that updateFrame can be called while being a non static
-    // class member
     LOG_INF("---EXITED CAMEREA THREAD---");
 }
 
@@ -136,7 +134,7 @@ int ThermalCamera::getFrame(ThermalFrame &outFrame)
 
             for (int row = 0; row < FRAME_ROWS; row++){
 
-                int pixIndex = row * FRAME_ROWS + col;
+                int pixIndex = row * FRAME_COLS + col;
 
                 if(row % 2 == 0 && col % 2 == 0){
                     outFrame.pixels[pixIndex] = externFramePtr->pixels[pixIndex];
@@ -154,7 +152,6 @@ int ThermalCamera::getFrame(ThermalFrame &outFrame)
 /**
  * @brief the threading loop
  *
- * @return int
  */
 void ThermalCamera::updateFrame()
 {
@@ -162,9 +159,12 @@ void ThermalCamera::updateFrame()
     while (running_)
     {
 
-        getFrame(*internalFramePtr);
-
-        
+        int ret = getFrame(*internalFramePtr);
+        if (ret < 0)
+        {
+            k_sleep(K_MSEC(100));
+            continue;
+        }
 
         internalFramePtr->frameId = nextFrameId_;
         nextFrameId_++;
@@ -177,7 +177,6 @@ void ThermalCamera::updateFrame()
         k_sem_give(&frameReadySem_);
     }
 
-    // TODO Implement some sort of error handling.
     // TODO: implement variable wait times to save cpu time we know frames wont be updated based on the refresh rate of
     // the
 }
@@ -212,10 +211,6 @@ void ThermalCamera::logFrame(ThermalFrame &frame)
 }
 
 
-
-
-
-
 int ThermalCamera::close()
 {
 
@@ -240,7 +235,7 @@ ThermalFrame *ThermalCamera::getUpdatedFrame()
     int ret = k_sem_take(&frameReadySem_, K_NO_WAIT);
     if (ret != 0)
     {
-        LOG_INF("Data not ready");
+        // LOG_INF("Data not ready");
         return nullptr;
     }
 
@@ -263,6 +258,3 @@ int ThermalCamera::setRefreshRate(TC_RefreshRate rate)
     refreshRate = rate;
     return status;
 }
-
-
-
