@@ -39,6 +39,9 @@ class ThermalPipeline
     static constexpr int PRINT_FRAMES_PRIO = 7;
     static constexpr size_t PRINT_QUEUE_LEN = 5;
 
+    const struct device *uart_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+
+
     bool pushSummaryToCan();
 
     static void threadEntry(void *p1, void *p2, void *p3);
@@ -49,11 +52,17 @@ class ThermalPipeline
     int segementCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS], uint8_t seg_height);
     static uint16_t encodeTemp(const float &temp);
 
-    void printSimple(ThermalFrame &Frame);
 
     // PrintFrames Thread
     struct k_thread printFramesThread;
     k_tid_t printFramesTID = nullptr;
+
+
+    // SOH (status of health) messages
+    const uint16_t messageIntervalSec = 5;
+    int64_t lastMessageTime = k_uptime_get();
+    int64_t lastFrameTime = 0;
+
 
     // PrintFrames Queue
     struct k_msgq printFramesQueue;

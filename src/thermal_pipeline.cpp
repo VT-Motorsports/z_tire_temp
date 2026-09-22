@@ -1,7 +1,9 @@
 #include "thermal_pipeline.h"
 #include "can.h"
 #include "thermal_camera.h"
-#include "zephyr/drivers/can.h"
+#include <zephyr/drivers/can.h>
+#include <zephyr/drivers/uart.h>
+#include <zephyr/debug/cpu_load.h>
 #include "zephyr/kernel.h"
 #include "zephyr/kernel/thread_stack.h"
 #include "zephyr/logging/log.h"
@@ -34,20 +36,24 @@ int ThermalPipeline::start()
     LOG_INF("Thermal Pipline initalized");
 
 
-    k_msgq_init(&printFramesQueue,
-                reinterpret_cast<char *>(msqQBuff),
-                sizeof(ThermalFrame),
-                PRINT_QUEUE_LEN
-                );
-
+    if (printData){
+        k_msgq_init(&printFramesQueue,
+        reinterpret_cast<char *>(msqQBuff),
+        sizeof(ThermalFrame),
+        PRINT_QUEUE_LEN
+        );
 
     printFramesTID = k_thread_create(&printFramesThread, printFramesStack, K_THREAD_STACK_SIZEOF(printFramesStack),
                                      printFramesEntry, this, nullptr, nullptr, PRINT_FRAMES_PRIO, 0, K_NO_WAIT);
 
     LOG_INF("Thermal Pipeline print frames thread innitialized");
+    }
 
     return 0;
 }
+
+
+
 
 void ThermalPipeline::threadEntry(void *p1, void *p2, void *p3)
 {
@@ -75,6 +81,30 @@ void ThermalPipeline::processingLoop()
             lastProcessedFrameId_ = framePtr->frameId;
         }
 
+
+        const int64_t now = k_uptime_get();
+        
+
+        if (!printData && (now - lastMessageTime) >= messageIntervalSec *1000){
+
+            lastMessageTime = k_uptime_get();
+
+            float loadPer =  static_cast<float>((cpu_load_get(false))/10);
+
+
+            const int64_t elapsed = now - lastFrameTime;
+
+            if (lastFrameTime != 0 && elapsed > 0)
+            {
+                const float fps = 1000.0f / elapsed;
+                LOG_INF("PIPE SOH: FRAME FPS: %.2f CPU usage: %.2f", static_cast<double>(fps), loadPer);
+            }
+        }
+        lastFrameTime = now;
+
+
+        
+
         if (framePtr->frameId > lastProcessedFrameId_ + 1)
         {
             LOG_DBG("Skipped frame processing taken too long");
@@ -95,7 +125,6 @@ void ThermalPipeline::processingLoop()
 
         if (ret != 0)
         {
-
             LOG_DBG("ERROR: CAN message not sent");
         }
     }
@@ -201,28 +230,6 @@ void ThermalPipeline::close()
     k_thread_join(processingTID, K_FOREVER);
 }
 
-void ThermalPipeline::printSimple(ThermalFrame &Frame)
-{
-
-    static char rowBuf[FRAME_COLS * 6 + 1];
-
-    for (int row = 0; row < FRAME_ROWS; row++)
-    {
-        int offset = 0;
-        for (int col = 0; col < FRAME_COLS; col++)
-        {
-            float t = Frame.pixels[row * FRAME_COLS + col];
-            int whole = (int)t;
-            int frac = (int)((t - (float)whole) * 10);
-            if (frac < 0)
-            {
-                frac = -frac;
-            }
-            offset += snprintf(rowBuf + offset, sizeof(rowBuf) - offset, "%3d.%d ", whole, frac);
-        }
-        LOG_INF("%02d: %s", row, rowBuf);
-    }
-}
 
 void ThermalPipeline::printFramesEntry(void *instance, void *, void *)
 {
@@ -253,7 +260,7 @@ int ThermalPipeline::printFramesThreadWrk()
                                           static_cast<unsigned long>(dataFrame.frameId), row);
             for (int col = 0; col < FRAME_COLS; col++)
             {
-                int written = std::snprintf(rowBuf + offset, sizeof(rowBuf) - offset, ",%.4g",
+                int written = std::snprintf(rowBuf + offset, sizeof(rowBuf) - offset, ",%.3g",
                                             static_cast<double>(dataFrame.pixels[row * FRAME_COLS + col]));
                 if (written < 0 || static_cast<size_t>(written) >= sizeof(rowBuf) - offset)
                 {
@@ -263,7 +270,14 @@ int ThermalPipeline::printFramesThreadWrk()
                 offset += static_cast<size_t>(written);
                 if (col == FRAME_COLS - 1)
                 {
-                    printk("%s\n", rowBuf);
+                    
+                    for (size_t i = 0; i < offset; ++i)
+                    {
+                    uart_poll_out(uart_dev, static_cast<unsigned char>(rowBuf[i]));
+                    }
+                    uart_poll_out(uart_dev, '\r');
+                    uart_poll_out(uart_dev, '\n');
+
                 }
             }
         }

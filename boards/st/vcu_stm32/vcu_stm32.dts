@@ -7,6 +7,7 @@
 #include <st/h7/stm32h753Xi.dtsi>
 #include <st/h7/stm32h753zitx-pinctrl.dtsi>
 #include <zephyr/dt-bindings/i2c/i2c.h>
+#include <zephyr/dt-bindings/dma/stm32_dma.h>
 
  / {
 	model = "TempSense STM32H753VIT6 Thermal Sensor Board";
@@ -85,7 +86,7 @@
 &usart3 {
 	pinctrl-0 = <&usart3_tx_pd8 &usart3_rx_pd9>;
 	pinctrl-names = "default";
-	current-speed = <115200>;
+	current-speed = <921600>;
 	status = "okay";
 };
 

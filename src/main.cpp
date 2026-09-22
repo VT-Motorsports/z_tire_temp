@@ -54,7 +54,7 @@ void send_heartbeat(CanBus can)
 
 int main(void)
 
-     {
+    {
 
     LOG_INF("Main Innit");
 
@@ -65,10 +65,10 @@ int main(void)
 
     static ThermalCamera MLX{};
     MLX.init();
+    MLX.setRefreshRate(TC_RefreshRate::REFRESH_16_HZ);
 
     static ThermalPipeline pipe{MLX, can};
     pipe.start();
-    pipe.printData = true;
 
     k_sleep(K_FOREVER);
 }
