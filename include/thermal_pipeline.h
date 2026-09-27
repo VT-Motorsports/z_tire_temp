@@ -6,7 +6,7 @@
 #include <span>
 
 #include "can.h"
-#include "thermal_camera.h"
+#include "thermal_Camera.h"
 #include "zephyr/kernel/thread.h"
 
 #define PIPE_THREAD_STACK_SIZE 32768
@@ -41,7 +41,6 @@ class ThermalPipeline
 
     const struct device *uart_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
 
-
     bool pushSummaryToCan();
 
     static void threadEntry(void *p1, void *p2, void *p3);
@@ -49,20 +48,17 @@ class ThermalPipeline
 
     // Processing functions
     float getAveragePixel(ThermalFrame &frame);
-    int segementCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS], uint8_t seg_height);
+    static int segmentCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS], uint8_t seg_height = FRAME_ROWS);
     static uint16_t encodeTemp(const float &temp);
-
 
     // PrintFrames Thread
     struct k_thread printFramesThread;
     k_tid_t printFramesTID = nullptr;
 
-
     // SOH (status of health) messages
     const uint16_t messageIntervalSec = 5;
     int64_t lastMessageTime = k_uptime_get();
     int64_t lastFrameTime = 0;
-
 
     // PrintFrames Queue
     struct k_msgq printFramesQueue;
@@ -81,4 +77,6 @@ class ThermalPipeline
     uint32_t lastProcessedFrameId_ = 0;
     bool running_ = false;
     ThermalFrame *workingFrame_{};
+
+    friend class testAccess;
 };

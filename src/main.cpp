@@ -18,7 +18,7 @@
 #include <zephyr/toolchain.h>
 #include <zephyr/types.h>
 #include "can.h"
-#include "thermal_camera.h"
+#include "thermal_Camera.h"
 #include "thermal_pipeline.h"
 
 #ifndef __cplusplus

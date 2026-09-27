@@ -1,6 +1,6 @@
 #include "thermal_pipeline.h"
 #include "can.h"
-#include "thermal_camera.h"
+#include "thermal_Camera.h"
 #include <zephyr/drivers/can.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/debug/cpu_load.h>
@@ -145,7 +145,7 @@ uint16_t ThermalPipeline::encodeTemp(const float &temp)
     // All values save the first decimal point and encode as a uint16_t
 }
 
-int ThermalPipeline::segementCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS],uint8_t seg_height)
+int ThermalPipeline::segmentCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS],uint8_t seg_height = FRAME_ROWS)
 {
 
     //    Camera Frame

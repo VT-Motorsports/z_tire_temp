@@ -1,4 +1,4 @@
-#include "thermal_camera.h"
+#include "thermal_Camera.h"
 #include "MLX/MLX90640_API.h"
 #include "zephyr/drivers/i2c.h"
 #include "zephyr/kernel.h"

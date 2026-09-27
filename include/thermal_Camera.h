@@ -1,6 +1,5 @@
 #pragma once
 
-#include "thermal_camera.h"
 #include <cstddef>
 #include <stdint.h>
 #include <zephyr/device.h>

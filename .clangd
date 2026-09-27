@@ -1,23 +1,20 @@
 CompileFlags:
+  # Resolve relative to this file, independent of the editor's working directory.
+  CompilationDatabase: build
   # Strip GCC‑only or otherwise noisy options that clang can't handle
   Remove: [
     -fno-printf-return-value,
     -mfp16-format=ieee,
     -fno-reorder-functions,
-    -ftrack-macro-expansion=0      # <- the new one
+    -ftrack-macro-expansion=0
   ]
 
-  # Extra include paths *and* clang's own quiet‑flag
+  # Include paths and language settings come from CMake's compilation database.
   Add: [
-    -Iinclude,
-    -Ibuild/zephyr/include/generated,
     -fmacro-backtrace-limit=0,
     -Wno-vla-cxx-extension,
     -Wno-double-promotion,
     -Wno-float-conversion,
-    -std=gnu++20,
-    -xc++,
-
   ]
 Diagnostics:
   Suppress: ['-Wunused-includes']

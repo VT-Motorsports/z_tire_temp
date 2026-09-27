@@ -1,0 +1,9 @@
+tests:
+  tire_temp.segmentation:
+    harness: ztest
+    tags:
+      - tire_temp
+      - segmentation
+    integration_platforms:
+      - native_sim/native/64
+    timeout: 30

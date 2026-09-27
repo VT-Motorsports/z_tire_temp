@@ -1,6 +1,32 @@
 # Zephyr z_tire_temp Description
 Z tire temp is a repository containing firmware for the tire temp board. Its job is to measure the tire temperature using its thermal camera. 
 
+### Building and editor setup
+
+From this application directory, with the west workspace's virtual environment active:
+
+```powershell
+west build -b vcu_stm32 .
+```
+
+CMake exports `build/compile_commands.json`, and `.clangd` locates it relative to
+the application directory. Include paths and C/C++ language settings come from
+that database; do not duplicate them in editor flags.
+
+VS Code settings under `.vscode/` are ignored by Git. On a new checkout, add this
+argument to `clangd.arguments` so clangd can discover standard-library headers
+from both compilers in the workspace's `sdk/` directory:
+
+```text
+--query-driver=**/sdk/zephyr-sdk-*/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc.exe,**/sdk/zephyr-sdk-*/arm-zephyr-eabi/bin/arm-zephyr-eabi-g++.exe
+```
+
+Restart clangd after changing its arguments. After moving the west workspace,
+refresh its local SDK configuration using the workspace setup script, then run
+`west build -p always -b vcu_stm32 .` to regenerate paths and generated headers.
+For Cortex-Debug, point `armToolchainPath` at the installed workspace SDK's
+`arm-zephyr-eabi/bin` directory and use `toolchainPrefix: arm-zephyr-eabi`.
+
 ### Tire Measurement 
 Tire measurement is done by getting the averages of strips of the tire from the thermal Camera.
 
