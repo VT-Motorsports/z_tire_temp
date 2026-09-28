@@ -1,6 +1,8 @@
 #include "thermal_pipeline.h"
 #include "can.h"
 #include "thermal_Camera.h"
+#include <cstddef>
+#include <sys/_types.h>
 #include <zephyr/drivers/can.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/debug/cpu_load.h>
@@ -145,55 +147,52 @@ uint16_t ThermalPipeline::encodeTemp(const float &temp)
     // All values save the first decimal point and encode as a uint16_t
 }
 
-int ThermalPipeline::segmentCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS],uint8_t seg_height = FRAME_ROWS)
-{
 
-    //    Camera Frame
-    //     --------
-    //
-    //     ||||||||  <- Strips have a height that is determined by *seg_height* and detemine how "tall" the strips are
-    //
-    //     --------
 
-    seg_height = MIN(seg_height, FRAME_ROWS);
-    LOG_WRN("The configured segmentation height (%i) was greater than the avalible rows (%i). It was clamped.",
-            seg_height, FRAME_COLS);
+int ThermalPipeline::segmentCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS]){
 
-    int seg_start = FRAME_COLS / 2;
-    int center_width = seg_height / 2;
+    static bool logConfigErr = true;
 
-    uint8_t seg_width = std::ceil((double)FRAME_COLS / CAMERA_PROCESSING_SEGMENTS);
+    // If this is made dynamic this has to become runtime.
+    constexpr uint16_t SEG_WIDTH =  ((FRAME_COLS + CAMERA_PROCESSING_SEGMENTS -1) / CAMERA_PROCESSING_SEGMENTS); 
+    constexpr uint16_t SEG_OVERSHOOT = SEG_WIDTH * CAMERA_PROCESSING_SEGMENTS - FRAME_COLS; 
 
-    // with truncation this will be at most 1 short
-    for (int row = seg_height - center_width; row < seg_start + center_width; row++)
-    {
-        for (int col = 0; col < FRAME_COLS; col++)
-        {
+    if (SEG_OVERSHOOT != 0  && logConfigErr) LOG_WRN("The configured segmentation number doesn't evenly divide into the COL number");
 
-            int seg_num = static_cast<int>(col / seg_width);
+    for (float &seg : buf) {
+    seg = 0.0f;
+    }
 
-            buf[seg_num] = frame.pixels[row * FRAME_COLS + col];
+
+    for (size_t col = 0; col < FRAME_COLS; col ++){
+        for ( size_t row = 0; row< FRAME_ROWS; row ++){
+            size_t seg_number = (col+(SEG_OVERSHOOT/2))/SEG_WIDTH;
+            buf[seg_number] += frame.pixels[row * FRAME_COLS + col];
         }
     }
 
-    // Handles the case where the number of segements doesnt equally split up the thermal camera.
-    if (FRAME_COLS % CAMERA_PROCESSING_SEGMENTS != 0)
-    {
 
-        for (int i = 0; i < CAMERA_PROCESSING_SEGMENTS - 1; i++)
-            buf[i] /= seg_width;
+    for (int seg_num = 0; seg_num < CAMERA_PROCESSING_SEGMENTS; ++seg_num) {
+        int columns = SEG_WIDTH;
 
-        buf[CAMERA_PROCESSING_SEGMENTS - 2] /= FRAME_COLS - ((CAMERA_PROCESSING_SEGMENTS - 1) * seg_width);
+        if (seg_num == 0) {
+            columns -= SEG_OVERSHOOT / 2;
+        }
+        if (seg_num == CAMERA_PROCESSING_SEGMENTS - 1) {
+            columns -= SEG_OVERSHOOT - SEG_OVERSHOOT / 2;
+        }
+
+        buf[seg_num] /= FRAME_ROWS * columns;
     }
-    else
-    {
 
-        for (int i = 0; i < CAMERA_PROCESSING_SEGMENTS; i++)
-            buf[i] /= seg_width;
-    }
+
+    logConfigErr = false;
 
     return 0;
 }
+
+
+
 
 float ThermalPipeline::getAveragePixel(ThermalFrame &frame)
 {

@@ -1,6 +1,6 @@
 #include "../../common/tests_access.hpp"
 #include "thermal_Camera.h"
-
+#include <zephyr/ztest.h>
 
 // ZTEST_SUITE(SUITE_NAME, PREDICATE, setup_fn, before_fn, after_fn, teardown_fn)
 ZTEST_SUITE(segmentation, NULL, NULL, NULL, NULL, NULL);

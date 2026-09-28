@@ -48,7 +48,7 @@ class ThermalPipeline
 
     // Processing functions
     float getAveragePixel(ThermalFrame &frame);
-    static int segmentCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS], uint8_t seg_height = FRAME_ROWS);
+    static int segmentCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS]);
     static uint16_t encodeTemp(const float &temp);
 
     // PrintFrames Thread

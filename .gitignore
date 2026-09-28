@@ -1,4 +1,5 @@
 build/
 .cache/
 .claude/
-.vscode
+.vscode/*
+!.vscode/settings.json

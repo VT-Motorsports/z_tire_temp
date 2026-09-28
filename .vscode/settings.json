@@ -1,0 +1,22 @@
+{
+    "clangd.arguments": [
+        "--query-driver=**/sdk/zephyr-sdk-*/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc.exe,**/sdk/zephyr-sdk-*/arm-zephyr-eabi/bin/arm-zephyr-eabi-g++.exe"
+    ],
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "python.defaultInterpreterPath": "${workspaceFolder}/../.venv/Scripts/python.exe",
+    "python.terminal.activateEnvironment": false,
+    "python-envs.terminal.autoActivationType": "off",
+    "terminal.integrated.profiles.windows": {
+        "Zephyr PowerShell": {
+            "source": "PowerShell",
+            "args": [
+                "-NoExit",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                ". '${workspaceFolder}/../.venv/Scripts/Activate.ps1'"
+            ]
+        }
+    },
+    "terminal.integrated.defaultProfile.windows": "Zephyr PowerShell"
+}
