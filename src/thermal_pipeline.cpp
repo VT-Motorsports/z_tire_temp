@@ -9,6 +9,7 @@
 #include "zephyr/kernel.h"
 #include "zephyr/kernel/thread_stack.h"
 #include "zephyr/logging/log.h"
+#include "zephyr/sys/byteorder.h"
 #include "zephyr/sys/util.h"
 #include "zephyr/sys/printk.h"
 #include <cerrno>
@@ -38,17 +39,25 @@ int ThermalPipeline::start()
     LOG_INF("Thermal Pipline initalized");
 
 
-    if (printData){
-        k_msgq_init(&printFramesQueue,
-        reinterpret_cast<char *>(msqQBuff),
-        sizeof(ThermalFrame),
-        PRINT_QUEUE_LEN
-        );
+    switch (pipePrintMode) {
 
-    printFramesTID = k_thread_create(&printFramesThread, printFramesStack, K_THREAD_STACK_SIZEOF(printFramesStack),
-                                     printFramesEntry, this, nullptr, nullptr, PRINT_FRAMES_PRIO, 0, K_NO_WAIT);
+        case PipePrintModes::STREAM: {
+            k_msgq_init(&printFramesQueue,
+            reinterpret_cast<char *>(msqQBuff),
+            sizeof(ThermalFrame),
+            PRINT_QUEUE_LEN
+            );
 
-    LOG_INF("Thermal Pipeline print frames thread innitialized");
+            printFramesTID = k_thread_create(&printFramesThread, printFramesStack, K_THREAD_STACK_SIZEOF(printFramesStack),
+                                        printFramesEntry, this, nullptr, nullptr, PRINT_FRAMES_PRIO, 0, K_NO_WAIT);
+
+            LOG_INF("Thermal Pipeline print frames thread innitialized");
+            break;
+        }
+
+        default:
+
+            break;
     }
 
     return 0;
@@ -65,6 +74,8 @@ void ThermalPipeline::threadEntry(void *p1, void *p2, void *p3)
 
 void ThermalPipeline::processingLoop()
 {
+
+    float segmentBuffer[CAMERA_PROCESSING_SEGMENTS]{};
 
     // TODO: implement error handling
     while (running_)
@@ -83,52 +94,98 @@ void ThermalPipeline::processingLoop()
             lastProcessedFrameId_ = framePtr->frameId;
         }
 
-
-        const int64_t now = k_uptime_get();
         
+        // Doing this with event flags would be the ideal solution 
+        switch (pipePrintMode) {
 
-        if (!printData && (now - lastMessageTime) >= messageIntervalSec *1000){
+            case PipePrintModes::LOG_STATUS: {
 
-            lastMessageTime = k_uptime_get();
+                const int64_t now = k_uptime_get();
+                
+                if ((now - lastMessageTime) >= messageIntervalSec *1000){
 
-            float loadPer =  static_cast<float>((cpu_load_get(false))/10);
+                    lastMessageTime = k_uptime_get();
+
+                    float loadPer =  static_cast<float>((cpu_load_get(false))/10);
 
 
-            const int64_t elapsed = now - lastFrameTime;
+                    const int64_t elapsed = now - lastFrameTime;
 
-            if (lastFrameTime != 0 && elapsed > 0)
-            {
-                const float fps = 1000.0f / elapsed;
-                LOG_INF("PIPE SOH: FRAME FPS: %.2f CPU usage: %.2f", static_cast<double>(fps), loadPer);
+                    if (lastFrameTime != 0 && elapsed > 0)
+                    {
+                        const float fps = 1000.0f / elapsed;
+                        LOG_INF("PIPE SOH: FRAME FPS: %.2f CPU usage: %.2f", static_cast<double>(fps), loadPer);
+                    }
+                }
+                lastFrameTime = now;
+                break;
             }
+
+            case PipePrintModes::STREAM:
+                k_msgq_put(&printFramesQueue, framePtr, K_NO_WAIT); 
+                break;
+
+            case PipePrintModes::NONE:
+                
+                break;        
         }
-        lastFrameTime = now;
 
 
-        
+
 
         if (framePtr->frameId > lastProcessedFrameId_ + 1)
         {
             LOG_DBG("Skipped frame processing taken too long");
         }
+    
 
-        if (printData)
-        {
-            k_msgq_put(&printFramesQueue, framePtr, K_NO_WAIT);
+
+        segmentCameraData(*framePtr, segmentBuffer);
+
+        struct can_frame segmentInfoFrame{
+            .id = static_cast<uint32_t>(CansMsgCodes::segFrameInfo),
+            .dlc = 4, 
+            .flags = 0
+        };
+
+        // Need to be able to identify different thermal Cameras. 
+        struct can_frame segmentFrame{
+            .id = static_cast<uint32_t>(CansMsgCodes::segFrameBase),
+            .dlc = CAN_SIZE,
+            .flags = 0,
+        };
+
+        
+        constexpr uint16_t FRAMES_REQUIRED = (CAMERA_PROCESSING_SEGMENTS + CAN_SIZE -1 ) /CAN_SIZE;
+        
+
+        for (size_t frameNum = 0; frameNum < FRAMES_REQUIRED; frameNum ++){
+
+            
+            sys_put_be32(framePtr->frameId, &segmentInfoFrame.data[0]);
+
+            for (size_t i = 0; i< CAN_SIZE ; i++)
+            {
+
+                if (i >= CAMERA_PROCESSING_SEGMENTS){
+                    segmentFrame.dlc = i;
+                    break;
+                }
+
+                sys_put_be16(
+                    encodeTemp(segmentBuffer[i]),
+                    &segmentFrame.data[i]
+                );
+            }
+
+            int ret = can_.send(&segmentFrame, K_MSEC(10));
+
+            if (ret != 0)
+            {
+                LOG_DBG("ERROR: CAN message not sent");
+            }
         }
 
-        uint16_t avg = encodeTemp(getAveragePixel(*framePtr));
-
-        // LITTLE ENDIAN
-        struct can_frame cnframe{
-            .id = AVERAGE_PIXEL_MSG, .dlc = 2, .flags = 0, .data = {(uint8_t)avg, (uint8_t)(avg >> 8)}};
-
-        int ret = can_.send(&cnframe, K_MSEC(10));
-
-        if (ret != 0)
-        {
-            LOG_DBG("ERROR: CAN message not sent");
-        }
     }
 }
 

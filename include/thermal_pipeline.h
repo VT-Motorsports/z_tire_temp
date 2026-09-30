@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/byteorder.h>
 #include <errno.h>
 #include <span>
 
@@ -19,9 +20,19 @@ static constexpr size_t PRINT_FRAMES_ROW_BUFFER_SIZE = 14 + FRAME_COLS * 11;
 #define CAMERA_PROCESSING_SEGMENTS 7
 
 // TODO: Implement the correct CAN codes and create DBC
-enum CAN_MSG_CODES
+
+
+enum class CansMsgCodes : uint32_t 
 {
-    AVERAGE_PIXEL_MSG = 0x300
+  segFrameBase = 0x300,
+  segFrameInfo = 0x301
+};
+
+enum class PipePrintModes
+{
+  NONE,
+  STREAM,
+  LOG_STATUS,
 };
 
 class ThermalPipeline
@@ -32,12 +43,14 @@ class ThermalPipeline
     int start();
     void close();
 
-    bool printData = false;
 
   private:
     static constexpr int PROCESSING_THREAD_PRIO = 6;
     static constexpr int PRINT_FRAMES_PRIO = 7;
     static constexpr size_t PRINT_QUEUE_LEN = 5;
+    static constexpr uint8_t CAN_SIZE = 8;
+
+    PipePrintModes pipePrintMode = PipePrintModes::LOG_STATUS;
 
     const struct device *uart_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
 
