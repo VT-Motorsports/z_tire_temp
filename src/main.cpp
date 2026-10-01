@@ -29,32 +29,9 @@ LOG_MODULE_REGISTER(main);
 
 CAN_MSGQ_DEFINE(main_can_rx_msgq, 1000);
 
-void send_heartbeat(CanBus can)
-{
-    static uint32_t heartbeat_counter = 0;
-
-    struct can_frame heartbeat_frame = {.id = 0x100, // Heartbeat message ID
-                                        .dlc = 8,
-                                        .flags = 0,
-                                        .data = {(uint8_t)(heartbeat_counter >> 24), (uint8_t)(heartbeat_counter >> 16),
-                                                 (uint8_t)(heartbeat_counter >> 8), (uint8_t)(heartbeat_counter), 0xEF,
-                                                 0xFF, 0xFF, 0xFF}};
-
-    int ret = can.send(&heartbeat_frame, K_NO_WAIT);
-    if (ret == 0)
-    {
-    }
-    else
-    {
-        LOG_ERR("Heartbeat send failed: %d", ret);
-    }
-
-    heartbeat_counter++;
-}
-
+/*
 int main(void)
-
-    {
+{
 
     LOG_INF("Main Innit");
 
@@ -65,10 +42,46 @@ int main(void)
 
     static ThermalCamera MLX{};
     MLX.init();
-    MLX.setRefreshRate(TC_RefreshRate::REFRESH_16_HZ);
+    MLX.setRefreshRate(TC_RefreshRate::REFRESH_32_HZ);
 
     static ThermalPipeline pipe{MLX, can};
+    pipe.setPrintMode(PipePrintModes::LOG_STATUS);
     pipe.start();
 
     k_sleep(K_FOREVER);
 }
+*/
+
+int main(void)
+{
+    LOG_INF("Main Innit");
+
+    static ThermalCamera MLX{};
+    MLX.init();
+    MLX.setRefreshRate(TC_RefreshRate::REFRESH_32_HZ);
+
+
+    int64_t now_ms = k_uptime_get();
+    int64_t lastMessageTime_ms = now_ms;
+
+    while (true) {
+
+        now_ms = k_uptime_get();
+        MLX.getUpdatedFrame();
+        
+        if (now_ms - lastMessageTime_ms >= 1000){
+
+            double fps = 1000/(double)(k_uptime_get()-now_ms);
+            float loadPer =  static_cast<float>((cpu_load_get(false))/10);
+            LOG_INF("PIPE SOH: FRAME FPS: %.2f CPU usage: %.2f", static_cast<double>(fps), loadPer);
+
+            lastMessageTime_ms = now_ms;
+        }
+
+    }
+    
+}
+
+
+
+

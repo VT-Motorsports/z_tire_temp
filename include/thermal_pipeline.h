@@ -43,6 +43,8 @@ class ThermalPipeline
     int start();
     void close();
 
+    void setPrintMode(PipePrintModes mode);
+
 
   private:
     static constexpr int PROCESSING_THREAD_PRIO = 6;

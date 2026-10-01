@@ -4,6 +4,7 @@
 #include "zephyr/kernel.h"
 #include "zephyr/kernel/thread.h"
 #include "zephyr/logging/log.h"
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <algorithm>
@@ -158,14 +159,18 @@ void ThermalCamera::logFrame(ThermalFrame &frame)
     }
 }
 
+ThermalCamera::~ThermalCamera(){
+    close();
+}
+
+
 int ThermalCamera::close()
 {
 
     if (!running_ && upFrameThreadPtr == nullptr)
     {
-
-        LOG_DBG("Tried Ending process without initializing");
-        return 0; // TODO: should this be an error code?
+        LOG_WRN("Closed Camera Before Starting");
+        return EALREADY; 
     }
 
     running_ = false;
@@ -179,12 +184,23 @@ int ThermalCamera::close()
 ThermalFrame *ThermalCamera::getUpdatedFrame()
 {
 
-    int ret = k_sem_take(&frameReadySem_, K_NO_WAIT);
-    if (ret != 0)
-    {
-        // LOG_INF("Data not ready");
-        return nullptr;
+    int ret = k_sem_take(
+        &frameReadySem_,
+        CONSUMER_FRAME_TIMEOUT
+    );
+
+    switch (ret) {
+    
+        case EAGAIN:
+            LOG_ERR("CAM: Frame gather timed out");
+            return nullptr;
+        
+        default: 
+            
+            break;
+
     }
+
 
     k_mutex_lock(&frameMutex_, K_FOREVER);
     ThermalFrame *safePtr = externFramePtr;

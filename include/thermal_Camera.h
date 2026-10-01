@@ -7,6 +7,7 @@
 #include <zephyr/kernel.h>
 #include "MLX/MLX90640_API.h"
 #include "zephyr/kernel/thread.h"
+#include "zephyr/sys/clock.h"
 
 #define MLX_NODE DT_NODELABEL(mlx90640)
 #define CAMERA_THREAD_STACK_SIZE 32768 
@@ -43,6 +44,7 @@ class ThermalCamera
 {
   public:
     explicit ThermalCamera();
+    ~ThermalCamera();
 
     int init();
     int close();
@@ -55,6 +57,7 @@ class ThermalCamera
     // --- Thread configuration ---
     static constexpr int CAPTURE_THREAD_PRIORITY = 5;
     static constexpr size_t CAPTURE_THREAD_STACK_SIZE = CAMERA_THREAD_STACK_SIZE;
+    static constexpr k_timeout_t CONSUMER_FRAME_TIMEOUT = K_MSEC(100);
 
     // --- Sensor state ---
     paramsMLX90640 params;

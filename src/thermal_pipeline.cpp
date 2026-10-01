@@ -85,7 +85,7 @@ void ThermalPipeline::processingLoop()
 
         if (!framePtr)
         {
-            LOG_DBG("Frame not updated frame not ready");
+            LOG_ERR("Frame ");
             k_sleep(K_MSEC(10));
             continue;
         }
@@ -129,17 +129,13 @@ void ThermalPipeline::processingLoop()
                 
                 break;        
         }
-
-
-
-
-        if (framePtr->frameId > lastProcessedFrameId_ + 1)
-        {
-            LOG_DBG("Skipped frame processing taken too long");
-        }
     
 
 
+
+    
+
+        
         segmentCameraData(*framePtr, segmentBuffer);
 
         struct can_frame segmentInfoFrame{
@@ -185,8 +181,9 @@ void ThermalPipeline::processingLoop()
                 LOG_DBG("ERROR: CAN message not sent");
             }
         }
-
+    
     }
+
 }
 
 /**
@@ -339,4 +336,9 @@ int ThermalPipeline::printFramesThreadWrk()
         }
     }
     return 0;
+}
+
+
+void ThermalPipeline::setPrintMode(PipePrintModes mode){
+    pipePrintMode = mode;
 }
