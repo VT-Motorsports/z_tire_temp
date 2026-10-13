@@ -37,7 +37,7 @@ int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress,
     int ret = i2c_write_read_dt(&mlx_i2c, reg, sizeof(reg), (uint8_t *)data, nBytes);
     if (ret < 0) {
         LOG_ERR("I2C read failed at 0x%04x: %d", startAddress, ret);
-        return -MLX90640_I2C_NACK_ERROR;
+        return -ret;
     }
 
     // Sensor sends each 16-bit word big-endian; swap to host order.

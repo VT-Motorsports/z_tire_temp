@@ -451,7 +451,7 @@ void MLX90640_CalculateTo(uint16_t *frameData, const paramsMLX90640 *params, flo
     gain = (float)params->gainEE / (int16_t)frameData[778];
 
     //------------------------- To calculation -------------------------------------
-    mode = (frameData[832] & MLX90640_CTRL_MEAS_MODE_MASK) >> 5;
+    mode = (frameData[832] & MLX90640_CTRL_MEAS_MODE_MASK) >> MLX90640_CTRL_MEAS_MODE_SHIFT;
 
     irDataCP[0] = (int16_t)frameData[776] * gain;
     irDataCP[1] = (int16_t)frameData[808] * gain;
@@ -571,7 +571,7 @@ void MLX90640_GetImage(uint16_t *frameData, const paramsMLX90640 *params, float 
 
     //------------------------- Image calculation -------------------------------------
 
-    mode = (frameData[832] & MLX90640_CTRL_MEAS_MODE_MASK) >> 5;
+    mode = (frameData[832] & MLX90640_CTRL_MEAS_MODE_MASK) >> MLX90640_CTRL_MEAS_MODE_SHIFT;
 
     irDataCP[0] = (int16_t)frameData[776] * gain;
     irDataCP[1] = (int16_t)frameData[808] * gain;

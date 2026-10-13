@@ -85,5 +85,6 @@ class ThermalCamera
     static int interLeaveChessData(ThermalFrame &sourceFrame, ThermalFrame &destFrame);
     static void updateFrameThreadEntry(void *p1, void *p2, void *p3);
     int getFrame(ThermalFrame &outFrame); // TODO: Fix this naming convention this internal method is to similar to the get for the customer
+    int getFullFrame(ThermalFrame &outFrame);
 
 };

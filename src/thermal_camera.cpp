@@ -1,5 +1,6 @@
 #include "thermal_Camera.h"
 #include "MLX/MLX90640_API.h"
+#include "MLX/MLX90640_I2C_Driver.h"
 #include "zephyr/drivers/i2c.h"
 #include "zephyr/kernel.h"
 #include "zephyr/kernel/thread.h"
@@ -25,16 +26,35 @@ int ThermalCamera::init()
     sensor_init_timestamp_S = k_uptime_get() / 1000;
 
     static uint16_t eeMLX90640[832];
+    MLX90640_I2CGeneralReset();
 
     int status{};
 
     status = MLX90640_DumpEE(MLX906040_I2C_ADRR, eeMLX90640);
+    if (status != 0) {
+        LOG_ERR("EEPROM read failed: %d", status);
+        return status;
+    }
 
     status = MLX90640_ExtractParameters(eeMLX90640, &params);
 
     if (status != 0)
     {
-        LOG_ERR("Extracting Params Failed %d", status);
+        LOG_ERR("TC: Extracting Params Failed %d", status);
+        return status;
+    }
+
+    status = MLX90640_TriggerMeasurement(MLX906040_I2C_ADRR);
+    if (status != MLX90640_NO_ERROR)
+    {
+        LOG_ERR("TC: Trigger measurement failed: %d", status);
+        return status;
+    }
+
+    status = MLX90640_SynchFrame(MLX906040_I2C_ADRR);
+    if (status != MLX90640_NO_ERROR)
+    {
+        LOG_ERR("TC: Frame synchronization failed: %d", status);
         return status;
     }
 
@@ -43,6 +63,8 @@ int ThermalCamera::init()
     upFrameThreadPtr =
         k_thread_create(&upFrameThread, thermalCamThreadStack, CAPTURE_THREAD_STACK_SIZE, updateFrameThreadEntry, this,
                         nullptr, nullptr, CAPTURE_THREAD_PRIORITY, 0, K_NO_WAIT);
+    
+    k_float_enable(upFrameThreadPtr, K_FP_REGS);
 
     LOG_INF("Thermal Camera Initalized");
     return 0;
@@ -86,7 +108,7 @@ int ThermalCamera::getFrame(ThermalFrame &outFrame)
 
     if (status < 0)
     {
-        LOG_ERR("GetFrameData failed: %d", status);
+        LOG_ERR("TC: GetFrameData failed: %d", status);
         return status;
     }
 
@@ -94,11 +116,59 @@ int ThermalCamera::getFrame(ThermalFrame &outFrame)
 
     memcpy(outFrame.pixels, externFramePtr->pixels, sizeof(outFrame.pixels));
 
-    tr = MLX90640_GetTa(mlx90640Frame, &params) - trShift;
+    tr =  MLX90640_GetTa(mlx90640Frame, &params) -trShift;
+    
 
     MLX90640_CalculateTo(mlx90640Frame, &params, emissivity, tr, (float *)outFrame.pixels);
     return 0;
 }
+
+
+int ThermalCamera::getFullFrame(ThermalFrame &outFrame){
+
+    float emissivity = 0.95;
+    float trShift{8};
+    float tr{};
+    // TODO: These calibration constants are dependent on the emissivity of the surroundings
+    //       and the temperature shift caused by the emissivity of the surroundings
+    //       THESE ARE DEFAULT VALUES (should also probably class members)
+
+    static uint16_t mlx90640Frame[TOTAL_FRAME_BUFF_AMT];
+
+    
+    const int firstSubPage = MLX90640_GetFrameData(MLX906040_I2C_ADRR, mlx90640Frame);
+
+    if (firstSubPage < 0)
+    {
+        LOG_ERR("TC: First subpage read failed: %d", firstSubPage);
+        return firstSubPage;
+    }
+
+    tr = MLX90640_GetTa(mlx90640Frame, &params) - trShift;
+
+    MLX90640_CalculateTo(mlx90640Frame, &params, emissivity, tr, (float *)outFrame.pixels);
+
+    const int secondSubPage = MLX90640_GetFrameData(MLX906040_I2C_ADRR, mlx90640Frame);
+
+    if (secondSubPage < 0)
+    {
+        LOG_ERR("TC: Second subpage read failed: %d", secondSubPage);
+        return secondSubPage;
+    }
+
+    if (secondSubPage == firstSubPage)
+    {
+        LOG_ERR("TC: Duplicate subpage reads: %d, %d", firstSubPage, secondSubPage);
+        return -EAGAIN;
+    }
+
+    MLX90640_CalculateTo(mlx90640Frame, &params, emissivity, tr, (float *)outFrame.pixels);
+
+    outFrame.subPage = 3;
+    
+    return 0;
+}
+
 
 /**
  * @brief the threading loop
@@ -110,7 +180,7 @@ void ThermalCamera::updateFrame()
     while (running_)
     {
 
-        int ret = getFrame(*internalFramePtr);
+        int ret = getFullFrame(*internalFramePtr);
         if (ret < 0)
         {
             k_sleep(K_MSEC(100));
@@ -169,7 +239,7 @@ int ThermalCamera::close()
 
     if (!running_ && upFrameThreadPtr == nullptr)
     {
-        LOG_WRN("Closed Camera Before Starting");
+        LOG_WRN("TC: Closed Camera Before Starting");
         return EALREADY; 
     }
 
@@ -215,7 +285,10 @@ int ThermalCamera::setRefreshRate(TC_RefreshRate rate)
 
     if (status != 0)
     {
-        LOG_ERR("setRefreshRate failed with status: %d", status);
+        LOG_ERR("TC: setRefreshRate failed with status: %d", status);
+    }
+    else {
+        LOG_DBG("TC: Refresh rate was updated to %d",static_cast<uint8_t>(rate));
     }
 
     refreshRate = rate;

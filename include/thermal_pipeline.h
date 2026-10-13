@@ -22,6 +22,14 @@ static constexpr size_t PRINT_FRAMES_ROW_BUFFER_SIZE = 14 + FRAME_COLS * 11;
 // TODO: Implement the correct CAN codes and create DBC
 
 
+
+struct StripData{
+  uint8_t start = 0;
+  uint8_t stop = FRAME_COLS;
+  uint8_t height = 1;
+  bool average = false; 
+};
+
 enum class CansMsgCodes : uint32_t 
 {
   segFrameBase = 0x300,
@@ -64,6 +72,7 @@ class ThermalPipeline
     // Processing functions
     float getAveragePixel(ThermalFrame &frame);
     static int segmentCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS]);
+    static int getFrameStrip(ThermalFrame &frame, StripData &config);
     static uint16_t encodeTemp(const float &temp);
 
     // PrintFrames Thread
@@ -73,7 +82,8 @@ class ThermalPipeline
     // SOH (status of health) messages
     const uint16_t messageIntervalSec = 5;
     int64_t lastMessageTime = k_uptime_get();
-    int64_t lastFrameTime = 0;
+    int64_t statusStartTime = 0;
+    uint32_t statusStartFrameId = 0;
 
     // PrintFrames Queue
     struct k_msgq printFramesQueue;

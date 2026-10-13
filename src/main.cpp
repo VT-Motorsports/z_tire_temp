@@ -17,6 +17,7 @@
 #include <zephyr/sys/sys_heap.h>
 #include <zephyr/toolchain.h>
 #include <zephyr/types.h>
+#include "MLX/MLX90640_I2C_Driver.h"
 #include "can.h"
 #include "thermal_Camera.h"
 #include "thermal_pipeline.h"
@@ -29,7 +30,7 @@ LOG_MODULE_REGISTER(main);
 
 CAN_MSGQ_DEFINE(main_can_rx_msgq, 1000);
 
-/*
+
 int main(void)
 {
 
@@ -42,7 +43,7 @@ int main(void)
 
     static ThermalCamera MLX{};
     MLX.init();
-    MLX.setRefreshRate(TC_RefreshRate::REFRESH_32_HZ);
+    MLX.setRefreshRate(TC_RefreshRate::REFRESH_16_HZ);
 
     static ThermalPipeline pipe{MLX, can};
     pipe.setPrintMode(PipePrintModes::LOG_STATUS);
@@ -50,15 +51,16 @@ int main(void)
 
     k_sleep(K_FOREVER);
 }
-*/
 
+/*
 int main(void)
 {
     LOG_INF("Main Innit");
 
-    static ThermalCamera MLX{};
+    ThermalCamera MLX {};
     MLX.init();
     MLX.setRefreshRate(TC_RefreshRate::REFRESH_32_HZ);
+        
 
 
     int64_t now_ms = k_uptime_get();
@@ -67,7 +69,9 @@ int main(void)
     while (true) {
 
         now_ms = k_uptime_get();
+        
         MLX.getUpdatedFrame();
+                
         
         if (now_ms - lastMessageTime_ms >= 1000){
 
@@ -81,7 +85,7 @@ int main(void)
     }
     
 }
-
+*/
 
 
 

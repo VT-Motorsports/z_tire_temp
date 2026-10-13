@@ -101,23 +101,30 @@ void ThermalPipeline::processingLoop()
             case PipePrintModes::LOG_STATUS: {
 
                 const int64_t now = k_uptime_get();
+
+                if (statusStartTime == 0)
+                {
+                    statusStartTime = now;
+                    statusStartFrameId = lastProcessedFrameId_;
+                }
                 
                 if ((now - lastMessageTime) >= messageIntervalSec *1000){
 
-                    lastMessageTime = k_uptime_get();
+                    lastMessageTime = now;
 
                     float loadPer =  static_cast<float>((cpu_load_get(false))/10);
 
-
-                    const int64_t elapsed = now - lastFrameTime;
-
-                    if (lastFrameTime != 0 && elapsed > 0)
+                    const int64_t elapsed = now - statusStartTime;
+                    if (elapsed > 0)
                     {
-                        const float fps = 1000.0f / elapsed;
+                        const uint32_t frames = lastProcessedFrameId_ - statusStartFrameId;
+                        const float fps = 1000.0f * frames / elapsed;
                         LOG_INF("PIPE SOH: FRAME FPS: %.2f CPU usage: %.2f", static_cast<double>(fps), loadPer);
                     }
+
+                    statusStartTime = now;
+                    statusStartFrameId = lastProcessedFrameId_;
                 }
-                lastFrameTime = now;
                 break;
             }
 
@@ -129,13 +136,7 @@ void ThermalPipeline::processingLoop()
                 
                 break;        
         }
-    
 
-
-
-    
-
-        
         segmentCameraData(*framePtr, segmentBuffer);
 
         struct can_frame segmentInfoFrame{
