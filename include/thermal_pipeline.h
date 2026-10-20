@@ -5,6 +5,9 @@
 #include <zephyr/sys/byteorder.h>
 #include <errno.h>
 #include <span>
+#include <vector>
+#include <utility>
+
 
 #include "can.h"
 #include "thermal_Camera.h"
@@ -22,18 +25,17 @@ static constexpr size_t PRINT_FRAMES_ROW_BUFFER_SIZE = 14 + FRAME_COLS * 11;
 // TODO: Implement the correct CAN codes and create DBC
 
 
-
-struct StripData{
-  uint8_t start = 0;
-  uint8_t stop = FRAME_COLS;
-  uint8_t height = 1;
-  bool average = false; 
-};
-
 enum class CansMsgCodes : uint32_t 
 {
-  segFrameBase = 0x300,
-  segFrameInfo = 0x301
+  TempData = 0x330,
+  FrameDataIdentifier = 0x331
+};
+
+
+enum class PipeCanFrameTypes
+{
+  AVERAGED_STRIPS,
+  FULL_FRAME,
 };
 
 enum class PipePrintModes
@@ -72,7 +74,23 @@ class ThermalPipeline
     // Processing functions
     float getAveragePixel(ThermalFrame &frame);
     static int segmentCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS]);
-    static int getFrameStrip(ThermalFrame &frame, StripData &config);
+
+
+    /**
+     * @brief Generate a framestrip given two points p1 and p2.
+     *
+     * Given the two points a averaged strip is placed into the stripBuff with p1 acting as the top left point 
+     * and p2 as the inclusive bottom right, forming a rectangle. 
+     *
+     * @param frame Reference to the thermal frame 
+     * @param stripBuff Vector float containing the strip data
+     * @param p1 the top left start index of the strip in form float pair (x,y).
+     * @param p2 the bottom right (inclusive) stop index of the strip. 
+     * @param avg boolean flag that if true averages all columns in the strip. 
+     * @return 0 on success EINVAL if p1 or p2 are out of range or p2 is > p1
+     */
+    static int getFrameStrip(ThermalFrame &frame, std::vector<float> &stripBuff, std::pair<size_t, size_t> p1, std::pair<size_t, size_t> p2, bool avg = true);
+    
     static uint16_t encodeTemp(const float &temp);
 
     // PrintFrames Thread

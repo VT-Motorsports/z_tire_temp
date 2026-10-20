@@ -3,6 +3,7 @@
 #include "thermal_Camera.h"
 #include <cstddef>
 #include <sys/_types.h>
+#include <vector>
 #include <zephyr/drivers/can.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/debug/cpu_load.h>
@@ -137,7 +138,14 @@ void ThermalPipeline::processingLoop()
                 break;        
         }
 
-        segmentCameraData(*framePtr, segmentBuffer);
+        std::vector<float> strip;
+
+        getFrameStrip(
+            *framePtr,
+            strip,
+            {0,11},
+            {24,10}
+        );
 
         struct can_frame segmentInfoFrame{
             .id = static_cast<uint32_t>(CansMsgCodes::segFrameInfo),
@@ -156,36 +164,72 @@ void ThermalPipeline::processingLoop()
         constexpr uint16_t FRAMES_REQUIRED = (CAMERA_PROCESSING_SEGMENTS + CAN_SIZE -1 ) /CAN_SIZE;
         
 
-        for (size_t frameNum = 0; frameNum < FRAMES_REQUIRED; frameNum ++){
 
-            
-            sys_put_be32(framePtr->frameId, &segmentInfoFrame.data[0]);
-
-            for (size_t i = 0; i< CAN_SIZE ; i++)
-            {
-
-                if (i >= CAMERA_PROCESSING_SEGMENTS){
-                    segmentFrame.dlc = i;
-                    break;
-                }
-
-                sys_put_be16(
-                    encodeTemp(segmentBuffer[i]),
-                    &segmentFrame.data[i]
-                );
-            }
-
-            int ret = can_.send(&segmentFrame, K_MSEC(10));
-
-            if (ret != 0)
-            {
-                LOG_DBG("ERROR: CAN message not sent");
-            }
-        }
     
     }
 
 }
+
+
+
+int ThermalPipeline::sendTempsOverCan(std::vector<float> &temps){
+
+    
+    
+    const uint16_t FRAMES_REQUIRED = (temps.size() + CAN_SIZE -1)/CAN_SIZE; //Ceil on div CAN_SIZE
+    
+    
+    for (size_t frameNum = 0; frameNum < framesRequired; frameNum ++){
+
+        
+        sys_put_be32(framePtr->frameId, &segmentInfoFrame.data[0]);
+
+        for (size_t i = 0; i< CAN_SIZE ; i++)
+        {
+
+            if (i >= CAMERA_PROCESSING_SEGMENTS){
+                segmentFrame.dlc = i;
+                break;
+            }
+
+            sys_put_be16(
+                encodeTemp(segmentBuffer[i]),
+                &segmentFrame.data[i]
+            );
+        }
+
+        int ret = can_.send(&segmentFrame, K_MSEC(10));
+
+        if (ret != 0)
+        {
+            LOG_DBG("ERROR: CAN message not sent");
+        }
+    }
+
+
+
+
+
+}
+
+
+int ThermalPipeline::sendFrameIdentifier(PipeCanFrameTypes frameType){
+
+    // TODO IMPLEMENT
+    switch (frameType) {
+    
+        case PipeCanFrameTypes::FULL_FRAME:
+            break;
+
+        case PipeCanFrameTypes::AVERAGED_STRIPS:
+            break;
+
+        default:
+            break;
+    }
+
+}
+
 
 /**
  * @brief Encode thermal temp to pass with CAN (Multiplys by 10 and encodes as uint8)
@@ -202,7 +246,57 @@ uint16_t ThermalPipeline::encodeTemp(const float &temp)
     // All values save the first decimal point and encode as a uint16_t
 }
 
+/**
+    * @brief Generate a framestrip given two points p1 and p2.
+    *
+    * Given the two points a averaged strip is placed into the stripBuff with p1 acting as the top left point 
+    * and p2 as the inclusive bottom right, forming a rectangle. 
+    *
+    * @param frame Reference to the thermal frame 
+    * @param stripBuff Vector float containing the strip data
+    * @param p1 the top left start index of the strip in form float pair (x,y).
+    * @param p2 the bottom right (inclusive) stop index of the strip. 
+    * @param avg boolean flag that if true averages all columns in the strip. 
+    * @return 0 on success EINVAL if p1 or p2 are out of range or p2 is > p1
+    */
+int ThermalPipeline::getFrameStrip(
+        ThermalFrame &frame,
+        std::vector<float> &stripBuff,
+        std::pair<size_t, size_t> p1,
+        std::pair<size_t, size_t> p2,
+        bool avg
+    ){
 
+    if (
+        (p1.first > p2.first) || (p1.second > p2.second) ||
+        (p1.first >= FRAME_COLS) || (p1.second >= FRAME_COLS)  // Dont need to check neg case unsigned
+        ){
+        return EINVAL;
+    }
+
+    stripBuff.clear();
+
+    for (size_t col = p1.first; col <= p2.first; col ++){
+        for ( size_t row = p1.second; row<= p2.second; row ++){
+
+            if (row == p1.second || !avg){
+                stripBuff.push_back(frame.pixels[row * FRAME_COLS + col]);
+            }else {
+                stripBuff[col] += frame.pixels[row * FRAME_COLS + col];
+            }
+        }
+    }    
+
+    if (avg){ //could move into last calls of double loop for small savings
+        for (float stripVal: stripBuff){
+            size_t height = p2.second - p1.second + 1;
+            stripVal /= height;
+        }
+    }
+
+
+    return 0;
+}
 
 int ThermalPipeline::segmentCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS]){
 
