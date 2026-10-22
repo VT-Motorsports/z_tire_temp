@@ -161,11 +161,11 @@ void ThermalPipeline::processingLoop()
 
 int ThermalPipeline::sendTempsOverCan(const std::vector<float> &temps, uint16_t frameID){
 
-    printk("CAN strip (frame %u): [", static_cast<unsigned int>(frameID));
-    for (size_t i = 0; i < temps.size(); ++i) {
-        printk("%s%.2f", i == 0 ? "" : ", ", static_cast<double>(temps[i]));
-    }
-    printk("]\n");
+    // printk("CAN strip (frame %u): [", static_cast<unsigned int>(frameID));
+    // for (size_t i = 0; i < temps.size(); ++i) {
+    //     printk("%s%.2f", i == 0 ? "" : ", ", static_cast<double>(temps[i]));
+    // }
+    // printk("]\n");
 
     if (temps.size() > UINT16_MAX){
         return -EMSGSIZE;
@@ -205,7 +205,7 @@ int ThermalPipeline::sendTempsOverCan(const std::vector<float> &temps, uint16_t 
 
         if (ret != 0)
         {
-            // LOG_ERR("PIPE: CAN message not sent: %d", ret); TODO: RE-ENABLE
+            LOG_ERR("PIPE: CAN message not sent: %d", ret); 
             return ret;
         }
         offset += count;
