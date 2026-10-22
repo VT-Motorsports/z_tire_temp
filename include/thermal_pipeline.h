@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdlib>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
 #include <errno.h>
@@ -32,10 +33,11 @@ enum class CansMsgCodes : uint32_t
 };
 
 
-enum class PipeCanFrameTypes
+enum class PipeCanFrameTypes: uint8_t
 {
-  AVERAGED_STRIPS,
-  FULL_FRAME,
+  AVERAGED_STRIPS = 0x1,
+  FULL_FRAME = 0x2,
+  PARTIAL_FRAME = 0x3
 };
 
 enum class PipePrintModes
@@ -62,11 +64,14 @@ class ThermalPipeline
     static constexpr size_t PRINT_QUEUE_LEN = 5;
     static constexpr uint8_t CAN_SIZE = 8;
 
+    //TODO:Impelement a way to differentiate different Cameras
+    static const uint16_t deviceId = 0;
+
     PipePrintModes pipePrintMode = PipePrintModes::LOG_STATUS;
 
     const struct device *uart_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
 
-    bool pushSummaryToCan();
+
 
     static void threadEntry(void *p1, void *p2, void *p3);
     void processingLoop();
@@ -75,6 +80,17 @@ class ThermalPipeline
     float getAveragePixel(ThermalFrame &frame);
     static int segmentCameraData(ThermalFrame &frame, float (&buf)[CAMERA_PROCESSING_SEGMENTS]);
 
+    // Payload: BE uint16 frame ID, BE uint16 first index, up to two BE uint16 temps (C * 10).
+    int sendTempsOverCan(const std::vector<float> &temps, uint16_t frameID);
+    
+    /** 
+     * @brief 
+     * 
+     * @param frameType enum that determines the status message sent
+     * @param frameId if sending Full frames and or strips the ID of the frame 
+     * @return int: 0 on success
+     */
+    int sendInfoFrame(PipeCanFrameTypes frameType, int16_t frameId = -1);
 
     /**
      * @brief Generate a framestrip given two points p1 and p2.

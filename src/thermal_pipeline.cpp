@@ -76,7 +76,7 @@ void ThermalPipeline::threadEntry(void *p1, void *p2, void *p3)
 void ThermalPipeline::processingLoop()
 {
 
-    float segmentBuffer[CAMERA_PROCESSING_SEGMENTS]{};
+
 
     // TODO: implement error handling
     while (running_)
@@ -143,28 +143,15 @@ void ThermalPipeline::processingLoop()
         getFrameStrip(
             *framePtr,
             strip,
-            {0,11},
-            {24,10}
+            {0,10},
+            {24,11},
+            true
         );
 
-        struct can_frame segmentInfoFrame{
-            .id = static_cast<uint32_t>(CansMsgCodes::segFrameInfo),
-            .dlc = 4, 
-            .flags = 0
-        };
 
-        // Need to be able to identify different thermal Cameras. 
-        struct can_frame segmentFrame{
-            .id = static_cast<uint32_t>(CansMsgCodes::segFrameBase),
-            .dlc = CAN_SIZE,
-            .flags = 0,
-        };
+        sendInfoFrame(PipeCanFrameTypes::AVERAGED_STRIPS);
 
-        
-        constexpr uint16_t FRAMES_REQUIRED = (CAMERA_PROCESSING_SEGMENTS + CAN_SIZE -1 ) /CAN_SIZE;
-        
-
-
+        sendTempsOverCan(strip, framePtr->frameId);
     
     }
 
@@ -172,61 +159,110 @@ void ThermalPipeline::processingLoop()
 
 
 
-int ThermalPipeline::sendTempsOverCan(std::vector<float> &temps){
+int ThermalPipeline::sendTempsOverCan(const std::vector<float> &temps, uint16_t frameID){
+
+    printk("CAN strip (frame %u): [", static_cast<unsigned int>(frameID));
+    for (size_t i = 0; i < temps.size(); ++i) {
+        printk("%s%.2f", i == 0 ? "" : ", ", static_cast<double>(temps[i]));
+    }
+    printk("]\n");
+
+    if (temps.size() > UINT16_MAX){
+        return -EMSGSIZE;
+    }
+    
+    constexpr size_t HEADER_SIZE_BYTES = 4;
+    constexpr size_t TEMP_SIZE_BYTES = sizeof(uint16_t);
+    constexpr size_t TEMPS_PER_FRAME = (CAN_SIZE - HEADER_SIZE_BYTES) / TEMP_SIZE_BYTES;
+    static_assert(TEMPS_PER_FRAME > 0, "CAN payload must fit a temperature");
 
     
-    
-    const uint16_t FRAMES_REQUIRED = (temps.size() + CAN_SIZE -1)/CAN_SIZE; //Ceil on div CAN_SIZE
-    
-    
-    for (size_t frameNum = 0; frameNum < framesRequired; frameNum ++){
+    for (float temp : temps) {
+        if (!std::isfinite(temp) || temp < 0.0f ||
+            temp * 10.0f > static_cast<float>(UINT16_MAX)) {
+            return -ERANGE;
+        }
+    }
 
-        
-        sys_put_be32(framePtr->frameId, &segmentInfoFrame.data[0]);
+    for (size_t offset = 0; offset < temps.size();) {
+        const size_t remaining = temps.size() - offset;
+        const size_t count = remaining < TEMPS_PER_FRAME ? remaining : TEMPS_PER_FRAME;
 
-        for (size_t i = 0; i< CAN_SIZE ; i++)
-        {
+        struct can_frame frame{};
+        frame.id = static_cast<uint32_t>(CansMsgCodes::TempData);
+        frame.dlc = static_cast<uint8_t>(HEADER_SIZE_BYTES + count * TEMP_SIZE_BYTES);
 
-            if (i >= CAMERA_PROCESSING_SEGMENTS){
-                segmentFrame.dlc = i;
-                break;
-            }
+        // Big-endian: frame ID, first temperature index, then uint16_t temperatures.
+        sys_put_be16(frameID, &frame.data[0]);
+        sys_put_be16(static_cast<uint16_t>(offset), &frame.data[2]);
 
-            sys_put_be16(
-                encodeTemp(segmentBuffer[i]),
-                &segmentFrame.data[i]
-            );
+        for (size_t i = 0; i < count; ++i) {
+            sys_put_be16(encodeTemp(temps[offset + i]),
+                         &frame.data[HEADER_SIZE_BYTES + i * TEMP_SIZE_BYTES]);
         }
 
-        int ret = can_.send(&segmentFrame, K_MSEC(10));
+        const int ret = can_.send(&frame, K_MSEC(10));
 
         if (ret != 0)
         {
-            LOG_DBG("ERROR: CAN message not sent");
+            // LOG_ERR("PIPE: CAN message not sent: %d", ret); TODO: RE-ENABLE
+            return ret;
         }
+        offset += count;
     }
 
 
-
-
+    return 0;
 
 }
 
+/** 
+* @brief 
+* 
+* @param frameType enum that determines the status message sent
+* @param frameId if sending Full frames and or strips the ID of the frame 
+* @return int: 0 on success
+*/
+int ThermalPipeline::sendInfoFrame(PipeCanFrameTypes frameType, int16_t frameId){
 
-int ThermalPipeline::sendFrameIdentifier(PipeCanFrameTypes frameType){
+    
+    struct can_frame infoFrame{};
 
-    // TODO IMPLEMENT
+    
+    // This currently exists to send device info on CAN as well as info about transmission data. 
+
     switch (frameType) {
     
         case PipeCanFrameTypes::FULL_FRAME:
-            break;
-
         case PipeCanFrameTypes::AVERAGED_STRIPS:
+        case PipeCanFrameTypes::PARTIAL_FRAME:
+
+            infoFrame.id = static_cast<uint32_t>(CansMsgCodes::FrameDataIdentifier);
+
+            sys_put_be16(deviceId, &infoFrame.data[0]);
+
+            infoFrame.data[2] = static_cast<uint8_t>(frameType);
+
+            sys_put_be16(frameId, &infoFrame.data[3]);
+
+            infoFrame.dlc = 5;
+
             break;
 
         default:
+            return -EINVAL;
             break;
     }
+
+    int ret = can_.send(&infoFrame, K_MSEC(10));
+
+
+    if (ret != 0 ){
+        LOG_ERR("PIPE: Sending Thermal Data info frame failed");
+        return ret;
+    }
+
+    return 0;
 
 }
 
@@ -237,7 +273,7 @@ int ThermalPipeline::sendFrameIdentifier(PipeCanFrameTypes frameType){
  * @param temp
  * @return uint16_t
  */
-uint16_t ThermalPipeline::encodeTemp(const float &temp)
+ uint16_t ThermalPipeline::encodeTemp(const float &temp)
 {
     return static_cast<uint16_t>(temp * 10.0f);
     // 37.5C -> 375C (uint16)
@@ -269,9 +305,8 @@ int ThermalPipeline::getFrameStrip(
 
     if (
         (p1.first > p2.first) || (p1.second > p2.second) ||
-        (p1.first >= FRAME_COLS) || (p1.second >= FRAME_COLS)  // Dont need to check neg case unsigned
-        ){
-        return EINVAL;
+        (p1.first >= FRAME_COLS) || (p1.second >= FRAME_ROWS)){
+        return -EINVAL;
     }
 
     stripBuff.clear();
@@ -282,13 +317,13 @@ int ThermalPipeline::getFrameStrip(
             if (row == p1.second || !avg){
                 stripBuff.push_back(frame.pixels[row * FRAME_COLS + col]);
             }else {
-                stripBuff[col] += frame.pixels[row * FRAME_COLS + col];
+                stripBuff[col-p1.first] += frame.pixels[row * FRAME_COLS + col];
             }
         }
     }    
 
     if (avg){ //could move into last calls of double loop for small savings
-        for (float stripVal: stripBuff){
+        for (float &stripVal: stripBuff){
             size_t height = p2.second - p1.second + 1;
             stripVal /= height;
         }
